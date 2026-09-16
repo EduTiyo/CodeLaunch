@@ -1,8 +1,8 @@
 [package]
 name = "codelaunch"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Configure and launch IDE workspaces with integrated terminal splits and startup commands"
+authors = ["Eduardo Tiyo"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
