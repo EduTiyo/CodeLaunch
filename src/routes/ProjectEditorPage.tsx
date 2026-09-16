@@ -38,11 +38,15 @@ export function ProjectEditorPage({ projectId }: Props) {
   }
 
   async function addFolder() {
-    const path = await open({ directory: true, multiple: false });
-    if (!path || Array.isArray(path)) return;
-    const name = path.split("/").filter(Boolean).pop() ?? "folder";
-    const folder: Folder = { id: newId(), name, path };
-    update({ folders: [...project!.folders, folder] });
+    const result = await open({ directory: true, multiple: true });
+    if (!result) return;
+    const paths = Array.isArray(result) ? result : [result];
+    const newFolders: Folder[] = paths.map((path) => ({
+      id: newId(),
+      name: path.split("/").filter(Boolean).pop() ?? "folder",
+      path,
+    }));
+    update({ folders: [...project!.folders, ...newFolders] });
   }
 
   function removeFolder(id: string) {
@@ -69,6 +73,9 @@ export function ProjectEditorPage({ projectId }: Props) {
       toast.error("Adicione uma pasta antes de criar um terminal.");
       return;
     }
+    // VS Code task labels must be unique across the whole workspace file, not just
+    // within a group — count every terminal in the project, not just this group's.
+    const totalTerminals = project!.terminal_groups.reduce((n, g) => n + g.terminals.length, 0);
     update({
       terminal_groups: project!.terminal_groups.map((g) =>
         g.id !== groupId
@@ -79,7 +86,7 @@ export function ProjectEditorPage({ projectId }: Props) {
                 ...g.terminals,
                 {
                   id: newId(),
-                  label: `Terminal ${g.terminals.length + 1}`,
+                  label: `Terminal ${totalTerminals + 1}`,
                   folder_id: project!.folders[0].id,
                   command: null,
                   keep_alive: true,

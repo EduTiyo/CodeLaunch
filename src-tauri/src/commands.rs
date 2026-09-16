@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use codelaunch_core::ide::vscode::{build_workspace_document, parse_vscode_workspace};
 use codelaunch_core::ide::IdeRegistry;
 use codelaunch_core::launcher;
+use codelaunch_core::model::validation::validate;
 use codelaunch_core::model::{Project, ProjectSummary};
 use codelaunch_core::storage::{default_projects_dir, default_workspaces_dir, FsProjectRepository, ProjectRepository};
 use uuid::Uuid;
@@ -46,6 +47,10 @@ pub fn load_project(state: tauri::State<SharedState>, id: Uuid) -> Result<Projec
 
 #[tauri::command]
 pub fn save_project(state: tauri::State<SharedState>, mut project: Project) -> Result<Project, String> {
+    if let Err(errors) = validate(&project) {
+        let messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
+        return Err(messages.join("; "));
+    }
     project.updated_at = chrono::Utc::now();
     state
         .lock()
