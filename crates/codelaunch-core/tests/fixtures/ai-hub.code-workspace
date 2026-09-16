@@ -1,0 +1,100 @@
+{
+  "folders": [
+    {
+      "name": "ai_hub_back",
+      "path": "../ai_hub/ai_hub_back",
+    },
+    {
+      "name": "ai_hub_front",
+      "path": "../ai_hub/ai_hub_front",
+    },
+  ],
+  "settings": {
+    "terminal.integrated.enablePersistentSessions": true,
+    "terminal.integrated.persistentSessionReviveProcess": "onExit",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.splitCwd": "inherited",
+    "task.allowAutomaticTasks": "on",
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Backend 1",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-lic", "docker compose up -d; npm run dev; exec $SHELL -l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group1",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ai_hub_back}"
+        }
+      },
+      {
+        "label": "Frontend 1",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-lic", "npm run dev; exec $SHELL -l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group1",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ai_hub_front}"
+        }
+      },
+      {
+        "label": "Backend 2",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group2",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ai_hub_back}"
+        }
+      },
+      {
+        "label": "Frontend 2",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group2",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ai_hub_front}"
+        }
+      },
+      {
+        "label": "Open All Terminals",
+        "dependsOn": ["Backend 1", "Frontend 1", "Backend 2", "Frontend 2"],
+        "dependsOrder": "parallel",
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      }
+    ]
+  },
+}

@@ -1,0 +1,117 @@
+{
+  "folders": [
+    {
+      "name": "ARIA-BACKEND",
+      "path": "../aria/ARIA-BACKEND",
+    },
+    {
+      "name": "ARIA-FRONTEND",
+      "path": "../aria/ARIA-FRONTEND",
+    },
+  ],
+  "settings": {
+    "terminal.integrated.enablePersistentSessions": true,
+    "terminal.integrated.persistentSessionReviveProcess": "onExit",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.splitCwd": "inherited",
+    "task.allowAutomaticTasks": "on",
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Backend 1",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-lic", "docker compose -f .devcontainer/docker-compose.yml up -d; npm run dev; exec $SHELL -l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group1",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ARIA-BACKEND}"
+        }
+      },
+      {
+        "label": "Backend 2",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-lic", "docker compose -f .devcontainer/docker-compose.yml up -d; npm run worker; exec $SHELL -l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group1",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ARIA-BACKEND}"
+        }
+      },
+      {
+        "label": "Frontend 1",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-lic", "npm run dev; exec $SHELL -l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group1",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ARIA-FRONTEND}"
+        }
+      },
+      {
+        "label": "Backend 3",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group2",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ARIA-BACKEND}"
+        }
+      },
+      {
+        "label": "Frontend 2",
+        "type": "shell",
+        "command": "${env:SHELL}",
+        "args": ["-l"],
+        "isBackground": true,
+        "problemMatcher": [],
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated",
+          "group": "group2",
+          "focus": false
+        },
+        "options": {
+          "cwd": "${workspaceFolder:ARIA-FRONTEND}"
+        }
+      },
+      {
+        "label": "Open All Terminals",
+        "dependsOn": ["Backend 1", "Backend 2", "Frontend 1", "Backend 3", "Frontend 2"],
+        "dependsOrder": "parallel",
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      }
+    ]
+  },
+}

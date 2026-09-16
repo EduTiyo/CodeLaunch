@@ -1,0 +1,67 @@
+pub mod vscode;
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use crate::model::{IdeKind, Project};
+
+#[derive(Debug, thiserror::Error)]
+pub enum IdeError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error("no adapter registered for {0:?}")]
+    UnsupportedIde(IdeKind),
+    #[error("failed to parse workspace file: {0}")]
+    ParseError(String),
+}
+
+pub type Result<T> = std::result::Result<T, IdeError>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RenderedWorkspace {
+    /// The file to hand to the IDE's CLI (e.g. a `.code-workspace` file).
+    pub entry_path: PathBuf,
+    /// Any other files the adapter wrote as a side effect of rendering.
+    pub generated_files: Vec<PathBuf>,
+}
+
+/// Everything a target IDE needs to implement to plug into CodeLaunch.
+///
+/// `render` and `launch_command` are deliberately separate: `render` is pure I/O
+/// (write config, no side effect on the running system) and is what golden-file
+/// tests exercise; `launch_command` only builds a `Command` and never executes it,
+/// so callers (or tests) can inspect it before spawning.
+pub trait IdeAdapter: Send + Sync {
+    fn kind(&self) -> IdeKind;
+    fn render(&self, project: &Project, output_dir: &Path) -> Result<RenderedWorkspace>;
+    fn launch_command(&self, workspace: &RenderedWorkspace) -> Command;
+}
+
+pub struct IdeRegistry {
+    adapters: HashMap<IdeKind, Box<dyn IdeAdapter>>,
+}
+
+impl IdeRegistry {
+    pub fn new() -> Self {
+        let mut adapters: HashMap<IdeKind, Box<dyn IdeAdapter>> = HashMap::new();
+        let vscode = vscode::VsCodeAdapter::default();
+        adapters.insert(vscode.kind(), Box::new(vscode));
+        Self { adapters }
+    }
+
+    pub fn get(&self, kind: IdeKind) -> Result<&dyn IdeAdapter> {
+        self.adapters
+            .get(&kind)
+            .map(|b| b.as_ref())
+            .ok_or(IdeError::UnsupportedIde(kind))
+    }
+}
+
+impl Default for IdeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
