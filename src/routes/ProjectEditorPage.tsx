@@ -1,28 +1,37 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { Folder, Project, Terminal, TerminalGroup } from "../lib/types";
-import { emptyProject, newId } from "../lib/types";
-import { launchProject, loadProject, previewWorkspace, saveProject } from "../lib/tauriApi";
+import { toast } from "sonner";
+import { ChevronDown, FolderPlus, Trash2 } from "lucide-react";
+import type { Folder, Project, Terminal, TerminalGroup } from "@/lib/types";
+import { emptyProject, newId } from "@/lib/types";
+import { launchProject, loadProject, previewWorkspace, saveProject } from "@/lib/tauriApi";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TerminalGrid } from "@/components/TerminalGrid";
 
 interface Props {
   projectId: string | null;
-  onBack: () => void;
 }
 
-export function ProjectEditorPage({ projectId, onBack }: Props) {
+export function ProjectEditorPage({ projectId }: Props) {
   const [project, setProject] = useState<Project | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
-      loadProject(projectId).then(setProject).catch((e) => setMessage(String(e)));
+      loadProject(projectId).then(setProject).catch((e) => toast.error(String(e)));
     } else {
       setProject(emptyProject("Novo Projeto"));
     }
   }, [projectId]);
 
-  if (!project) return <div style={{ padding: "1.5rem" }}>Carregando...</div>;
+  if (!project) {
+    return <p className="p-6 text-sm text-muted-foreground">Carregando...</p>;
+  }
 
   function update(patch: Partial<Project>) {
     setProject((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -51,13 +60,13 @@ export function ProjectEditorPage({ projectId, onBack }: Props) {
     update({ terminal_groups: [...project!.terminal_groups, group] });
   }
 
-  function removeGroup(id: string) {
-    update({ terminal_groups: project!.terminal_groups.filter((g) => g.id !== id) });
+  function removeGroup(groupId: string) {
+    update({ terminal_groups: project!.terminal_groups.filter((g) => g.id !== groupId) });
   }
 
   function addTerminal(groupId: string) {
     if (project!.folders.length === 0) {
-      setMessage("Adicione uma pasta antes de criar um terminal.");
+      toast.error("Adicione uma pasta antes de criar um terminal.");
       return;
     }
     update({
@@ -87,12 +96,7 @@ export function ProjectEditorPage({ projectId, onBack }: Props) {
       terminal_groups: project!.terminal_groups.map((g) =>
         g.id !== groupId
           ? g
-          : {
-              ...g,
-              terminals: g.terminals.map((t) =>
-                t.id === terminalId ? { ...t, ...patch } : t
-              ),
-            }
+          : { ...g, terminals: g.terminals.map((t) => (t.id === terminalId ? { ...t, ...patch } : t)) }
       ),
     });
   }
@@ -100,9 +104,7 @@ export function ProjectEditorPage({ projectId, onBack }: Props) {
   function removeTerminal(groupId: string, terminalId: string) {
     update({
       terminal_groups: project!.terminal_groups.map((g) =>
-        g.id !== groupId
-          ? g
-          : { ...g, terminals: g.terminals.filter((t) => t.id !== terminalId) }
+        g.id !== groupId ? g : { ...g, terminals: g.terminals.filter((t) => t.id !== terminalId) }
       ),
     });
   }
@@ -113,12 +115,12 @@ export function ProjectEditorPage({ projectId, onBack }: Props) {
       setProject(saved);
       if (andOpen) {
         await launchProject(saved.id);
-        setMessage("Salvo e aberto.");
+        toast.success("Salvo e aberto no VS Code.");
       } else {
-        setMessage("Salvo.");
+        toast.success("Projeto salvo.");
       }
     } catch (e) {
-      setMessage(String(e));
+      toast.error(String(e));
     }
   }
 
@@ -126,124 +128,113 @@ export function ProjectEditorPage({ projectId, onBack }: Props) {
     try {
       setPreview(await previewWorkspace(project!));
     } catch (e) {
-      setMessage(String(e));
+      toast.error(String(e));
     }
   }
 
   return (
-    <div style={{ padding: "1.5rem", fontFamily: "system-ui, sans-serif" }}>
-      <button onClick={onBack}>&larr; Voltar</button>
-      <h1 style={{ fontSize: "1.25rem" }}>Editar Projeto</h1>
-      {message && <p style={{ background: "#eef", padding: "0.5rem", borderRadius: 4 }}>{message}</p>}
-
-      <label style={{ display: "block", margin: "1rem 0" }}>
-        Nome
-        <br />
-        <input value={project.name} onChange={(e) => update({ name: e.target.value })} />
-      </label>
-
-      <label style={{ display: "block" }}>
-        IDE
-        <br />
-        <select value={project.ide} disabled>
-          <option value="vs-code">VS Code</option>
-        </select>{" "}
-        <span style={{ color: "#888" }}>(outras IDEs em breve)</span>
-      </label>
-
-      <h2 style={{ fontSize: "1rem", marginTop: "1.5rem" }}>Pastas</h2>
-      <ul>
-        {project.folders.map((f) => (
-          <li key={f.id}>
-            <strong>{f.name}</strong> — {f.path}{" "}
-            <button onClick={() => removeFolder(f.id)}>Remover</button>
-          </li>
-        ))}
-      </ul>
-      <button onClick={addFolder}>+ Pasta</button>
-
-      <h2 style={{ fontSize: "1rem", marginTop: "1.5rem" }}>
-        Terminais{" "}
-        <label style={{ fontWeight: "normal", fontSize: "0.9rem" }}>
-          <input
-            type="checkbox"
-            checked={project.terminals_enabled}
-            onChange={(e) => update({ terminals_enabled: e.target.checked })}
-          />{" "}
-          habilitados
-        </label>
-      </h2>
-
-      {project.terminals_enabled && (
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          {project.terminal_groups.map((group) => (
-            <div
-              key={group.id}
-              style={{ border: "1px solid #ccc", borderRadius: 6, padding: "0.75rem", minWidth: 220 }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <strong>{group.name}</strong>
-                <button onClick={() => removeGroup(group.id)}>Remover grupo</button>
-              </div>
-              {group.terminals.map((t) => (
-                <div key={t.id} style={{ borderTop: "1px solid #eee", marginTop: "0.5rem", paddingTop: "0.5rem" }}>
-                  <input
-                    value={t.label}
-                    onChange={(e) => updateTerminal(group.id, t.id, { label: e.target.value })}
-                    style={{ width: "100%" }}
-                  />
-                  <select
-                    value={t.folder_id}
-                    onChange={(e) => updateTerminal(group.id, t.id, { folder_id: e.target.value })}
-                    style={{ width: "100%", marginTop: "0.25rem" }}
-                  >
-                    {project.folders.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                  <textarea
-                    placeholder="comando (opcional)"
-                    value={t.command ?? ""}
-                    onChange={(e) =>
-                      updateTerminal(group.id, t.id, { command: e.target.value || null })
-                    }
-                    style={{ width: "100%", marginTop: "0.25rem" }}
-                  />
-                  <label style={{ display: "block", fontSize: "0.85rem" }}>
-                    <input
-                      type="checkbox"
-                      checked={t.keep_alive}
-                      onChange={(e) => updateTerminal(group.id, t.id, { keep_alive: e.target.checked })}
-                    />{" "}
-                    manter vivo após o comando (exec $SHELL -l)
-                  </label>
-                  <button onClick={() => removeTerminal(group.id, t.id)}>Remover terminal</button>
-                </div>
-              ))}
-              <button style={{ marginTop: "0.5rem" }} onClick={() => addTerminal(group.id)}>
-                + Terminal
-              </button>
-            </div>
-          ))}
-          <button onClick={addGroup} style={{ alignSelf: "flex-start" }}>
-            + Grupo
-          </button>
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 pb-28 pt-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-end gap-4">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="project-name">Nome</Label>
+            <Input
+              id="project-name"
+              value={project.name}
+              onChange={(e) => update({ name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>IDE</Label>
+            <Select value={project.ide} disabled>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vs-code">VS Code</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      )}
-
-      <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.5rem" }}>
-        <button onClick={handlePreview}>Preview JSON</button>
-        <button onClick={() => handleSave(false)}>Salvar</button>
-        <button onClick={() => handleSave(true)}>Salvar e Abrir</button>
+        <p className="text-xs text-muted-foreground">Outras IDEs (Cursor, JetBrains) em breve.</p>
       </div>
 
-      {preview && (
-        <pre style={{ background: "#111", color: "#0f0", padding: "1rem", marginTop: "1rem", overflow: "auto" }}>
-          {preview}
-        </pre>
-      )}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Pastas</h2>
+          <Button variant="outline" size="sm" onClick={addFolder}>
+            <FolderPlus className="size-3.5" />
+            Pasta
+          </Button>
+        </div>
+        {project.folders.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma pasta ainda.</p>
+        ) : (
+          <div className="divide-y divide-border rounded-lg border border-border">
+            {project.folders.map((f) => (
+              <div key={f.id} className="flex items-center justify-between gap-4 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{f.name}</p>
+                  <p className="truncate font-mono text-xs text-muted-foreground">{f.path}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground"
+                  onClick={() => removeFolder(f.id)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <Label className="flex items-center gap-2 text-sm font-medium">
+          <Switch
+            checked={project.terminals_enabled}
+            onCheckedChange={(terminals_enabled) => update({ terminals_enabled })}
+          />
+          Terminais integrados
+        </Label>
+
+        {project.terminals_enabled && (
+          <TerminalGrid
+            groups={project.terminal_groups}
+            folders={project.folders}
+            onAddGroup={addGroup}
+            onRemoveGroup={removeGroup}
+            onAddTerminal={addTerminal}
+            onUpdateTerminal={updateTerminal}
+            onRemoveTerminal={removeTerminal}
+          />
+        )}
+      </section>
+
+      <section>
+        <Button variant="ghost" size="sm" onClick={handlePreview}>
+          <ChevronDown className="size-3.5" />
+          Ver JSON gerado
+        </Button>
+        {preview && (
+          <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">
+            {preview}
+          </pre>
+        )}
+      </section>
+
+      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-end gap-2 px-6 py-3">
+          <Button variant="outline" onClick={() => handleSave(false)}>
+            Salvar
+          </Button>
+          <Button onClick={() => handleSave(true)}>Salvar e abrir</Button>
+        </div>
+      </div>
     </div>
   );
 }

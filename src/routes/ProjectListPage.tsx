@@ -1,13 +1,32 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { ProjectSummary } from "../lib/types";
+import { toast } from "sonner";
+import { FolderInput, MoreHorizontal, Plus, Rocket } from "lucide-react";
+import type { ProjectSummary } from "@/lib/types";
 import {
   deleteProject,
   importVsCodeWorkspace,
   launchMany,
   launchProject,
   listProjects,
-} from "../lib/tauriApi";
+} from "@/lib/tauriApi";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   onEdit: (id: string | null) => void;
@@ -17,9 +36,8 @@ export function ProjectListPage({ onEdit }: Props) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
-  const refresh = () => listProjects().then(setProjects).catch((e) => setMessage(String(e)));
+  const refresh = () => listProjects().then(setProjects).catch((e) => toast.error(String(e)));
 
   useEffect(() => {
     refresh();
@@ -42,10 +60,10 @@ export function ProjectListPage({ onEdit }: Props) {
     setBusy(true);
     try {
       const project = await importVsCodeWorkspace(path);
-      setMessage(`Importado "${project.name}" (${project.terminal_groups.length} grupo(s) de terminal).`);
+      toast.success(`Importado "${project.name}".`);
       refresh();
     } catch (e) {
-      setMessage(String(e));
+      toast.error(String(e));
     } finally {
       setBusy(false);
     }
@@ -55,9 +73,9 @@ export function ProjectListPage({ onEdit }: Props) {
     setBusy(true);
     try {
       await launchProject(id);
-      setMessage("Workspace aberto.");
+      toast.success("Workspace aberto.");
     } catch (e) {
-      setMessage(String(e));
+      toast.error(String(e));
     } finally {
       setBusy(false);
     }
@@ -67,13 +85,13 @@ export function ProjectListPage({ onEdit }: Props) {
     setBusy(true);
     try {
       const errors = await launchMany([...selected]);
-      setMessage(
-        errors.length === 0
-          ? `${selected.size} workspace(s) aberto(s).`
-          : `Concluído com erros: ${errors.join("; ")}`
-      );
+      if (errors.length === 0) {
+        toast.success(`${selected.size} workspace(s) aberto(s).`);
+      } else {
+        toast.error(`Concluído com erros: ${errors.join("; ")}`);
+      }
     } catch (e) {
-      setMessage(String(e));
+      toast.error(String(e));
     } finally {
       setBusy(false);
     }
@@ -85,80 +103,93 @@ export function ProjectListPage({ onEdit }: Props) {
       await deleteProject(id);
       refresh();
     } catch (e) {
-      setMessage(String(e));
+      toast.error(String(e));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div style={{ padding: "1.5rem", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ fontSize: "1.25rem" }}>CodeLaunch</h1>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button onClick={handleImport} disabled={busy}>
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6 pb-24">
+      <div className="flex items-center justify-between">
+        <h1 className="text-sm font-medium text-muted-foreground">Projetos</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleImport} disabled={busy}>
+            <FolderInput className="size-3.5" />
             Importar .code-workspace...
-          </button>
-          <button onClick={() => onEdit(null)} disabled={busy}>
-            + Novo Projeto
-          </button>
-          <button onClick={handleLaunchSelected} disabled={busy || selected.size === 0}>
-            Abrir Selecionados ({selected.size})
-          </button>
+          </Button>
+          <Button size="sm" onClick={() => onEdit(null)} disabled={busy}>
+            <Plus className="size-3.5" />
+            Novo projeto
+          </Button>
         </div>
       </div>
 
-      {message && (
-        <p style={{ background: "#eef", padding: "0.5rem", borderRadius: 4 }}>{message}</p>
+      {projects.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
+          <Rocket className="size-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Nenhum projeto ainda — importe um .code-workspace existente ou crie um novo.
+          </p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-8" />
+              <TableHead>Nome</TableHead>
+              <TableHead>IDE</TableHead>
+              <TableHead>Pastas</TableHead>
+              <TableHead>Terminais</TableHead>
+              <TableHead className="w-8" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {projects.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell>
+                  <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggle(p.id)} />
+                </TableCell>
+                <TableCell className="font-medium">{p.name}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary">VS Code</Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground">{p.folder_count}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {p.terminal_group_count > 0 ? `${p.terminal_group_count} grupo(s)` : "—"}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-7" disabled={busy}>
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleLaunch(p.id)}>Abrir</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(p.id)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem variant="destructive" onClick={() => handleDelete(p.id)}>
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
-      <table style={{ width: "100%", marginTop: "1rem", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-            <th></th>
-            <th>Nome</th>
-            <th>IDE</th>
-            <th>Pastas</th>
-            <th>Grupos de terminal</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((p) => (
-            <tr key={p.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={selected.has(p.id)}
-                  onChange={() => toggle(p.id)}
-                />
-              </td>
-              <td>{p.name}</td>
-              <td>{p.ide}</td>
-              <td>{p.folder_count}</td>
-              <td>{p.terminal_group_count}</td>
-              <td style={{ display: "flex", gap: "0.5rem" }}>
-                <button onClick={() => handleLaunch(p.id)} disabled={busy}>
-                  Abrir
-                </button>
-                <button onClick={() => onEdit(p.id)} disabled={busy}>
-                  Editar
-                </button>
-                <button onClick={() => handleDelete(p.id)} disabled={busy}>
-                  Excluir
-                </button>
-              </td>
-            </tr>
-          ))}
-          {projects.length === 0 && (
-            <tr>
-              <td colSpan={6} style={{ padding: "1rem", color: "#666" }}>
-                Nenhum projeto ainda. Importe um .code-workspace existente ou crie um novo.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {selected.size > 0 && (
+        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
+            <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            <Button onClick={handleLaunchSelected} disabled={busy}>
+              Abrir selecionados
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
