@@ -33,3 +33,7 @@ export function launchMany(ids: string[]): Promise<string[]> {
 export function importVsCodeWorkspace(path: string): Promise<Project> {
   return invoke("import_vscode_workspace", { path });
 }
+
+export function openTerminalSettings(): Promise<void> {
+  return invoke("open_terminal_settings");
+}

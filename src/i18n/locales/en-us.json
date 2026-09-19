@@ -72,6 +72,8 @@
     "integratedTerminals": "Integrated terminals",
     "viewJson": "View generated JSON",
     "viewScript": "View generated script",
+    "activateTerminal": "Activate Terminal",
+    "terminalMacNotice": "On macOS, grant Accessibility permission to Terminal to open tabs automatically.",
     "save": "Save",
     "saveAndOpen": "Save and open",
     "unsavedChangesDialog": {

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { ChevronDown, FolderPlus, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, FolderPlus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Folder, IdeKind, Project, Terminal, TerminalGroup } from "@/lib/types";
 import { emptyProject, IDE_LABELS, IDE_OPTIONS, newId } from "@/lib/types";
-import { launchProject, loadProject, previewWorkspace, saveProject } from "@/lib/tauriApi";
+import { launchProject, loadProject, openTerminalSettings, previewWorkspace, saveProject } from "@/lib/tauriApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,8 @@ function sanitizeProject(p: Project): Project {
     })),
   };
 }
+
+const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
 
 export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
   const { t } = useTranslation();
@@ -267,6 +269,14 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
     }
   }
 
+  async function handleActivateTerminal() {
+    try {
+      await openTerminalSettings();
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 pb-28 pt-6">
       <div className="flex flex-col gap-4">
@@ -299,6 +309,23 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{t("editor.comingSoon")}</p>
+        {project.ide === "terminal" && isMac && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 text-xs">
+            <span className="text-muted-foreground">
+              {t("editor.terminalMacNotice")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 gap-1.5 text-xs"
+              onClick={handleActivateTerminal}
+            >
+              <ExternalLink className="size-3" />
+              {t("editor.activateTerminal")}
+            </Button>
+          </div>
+        )}
       </div>
 
       <section className="space-y-3">
