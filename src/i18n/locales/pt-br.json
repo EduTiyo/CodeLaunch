@@ -73,6 +73,21 @@
     "viewJson": "Ver JSON gerado",
     "save": "Salvar",
     "saveAndOpen": "Salvar e abrir",
+    "detectScripts": "Detectar scripts",
+    "detectScriptsTooltip": "Escanear pasta em busca de scripts e comandos executáveis",
+    "detectDialog": {
+      "title": "Detecção Automática de Comandos",
+      "description": "Selecione os comandos detectados em {{folder}} para adicionar como terminais integrados.",
+      "scanning": "Escaneando pasta em busca de scripts...",
+      "noCommandsFound": "Nenhum script executável detectado nesta pasta.",
+      "noCommandsHint": "Suportados: package.json, Cargo.toml, docker-compose, Makefile, Python, Go",
+      "targetGroup": "Grupo de destino",
+      "newGroup": "+ Criar novo grupo (\"{{name}}\")",
+      "selectAll": "Selecionar todos",
+      "deselectAll": "Desmarcar todos",
+      "addCount": "Adicionar {{count}} terminais",
+      "addCount_one": "Adicionar 1 terminal"
+    },
     "unsavedChangesDialog": {
       "title": "Alterações não salvas",
       "description": "Você possui alterações não salvas neste projeto. Deseja sair e descartar as alterações?",
@@ -83,7 +98,9 @@
       "addFolderFirst": "Adicione uma pasta antes de criar um terminal.",
       "nameRequired": "O nome do projeto não pode ser vazio.",
       "savedAndOpened": "Salvo e aberto no {{ide}}.",
-      "saved": "Projeto salvo."
+      "saved": "Projeto salvo.",
+      "detectedAdded": "{{count}} terminal(is) adicionado(s) de {{folder}}.",
+      "detectError": "Falha ao escanear pasta para scripts."
     }
   },
   "terminals": {

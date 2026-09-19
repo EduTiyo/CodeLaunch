@@ -22,6 +22,13 @@ export const IDE_LABELS: Record<IdeKind, string> = {
   "windsurf": "Windsurf",
 };
 
+export interface DetectedCommand {
+  label: string;
+  command: string;
+  source: string;
+  default_selected: boolean;
+}
+
 export interface Folder {
   id: string;
   name: string;
