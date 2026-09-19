@@ -21,9 +21,9 @@
     "tasks": [
       {
         "label": "Backend 1",
-        "type": "shell",
+        "type": "process",
         "command": "${env:SHELL}",
-        "args": ["-lic", "docker compose -f infra/docker-compose.yml up -d; npm run dev; exec $SHELL -l"],
+        "args": ["-lic", "trap : INT; docker compose -f infra/docker-compose.yml up -d; npm run dev; exec \"$0\" -l"],
         "isBackground": true,
         "problemMatcher": [],
         "presentation": {
@@ -38,9 +38,9 @@
       },
       {
         "label": "Backend 2",
-        "type": "shell",
+        "type": "process",
         "command": "${env:SHELL}",
-        "args": ["-lic", "docker compose -f infra/docker-compose.yml up -d; npm run worker; exec $SHELL -l"],
+        "args": ["-lic", "trap : INT; docker compose -f infra/docker-compose.yml up -d; npm run worker; exec \"$0\" -l"],
         "isBackground": true,
         "problemMatcher": [],
         "presentation": {
@@ -55,9 +55,9 @@
       },
       {
         "label": "Frontend 1",
-        "type": "shell",
+        "type": "process",
         "command": "${env:SHELL}",
-        "args": ["-lic", "npm run dev; exec $SHELL -l"],
+        "args": ["-lic", "trap : INT; npm run dev; exec \"$0\" -l"],
         "isBackground": true,
         "problemMatcher": [],
         "presentation": {
@@ -72,7 +72,7 @@
       },
       {
         "label": "Backend 3",
-        "type": "shell",
+        "type": "process",
         "command": "${env:SHELL}",
         "args": ["-l"],
         "isBackground": true,
@@ -89,7 +89,7 @@
       },
       {
         "label": "Frontend 2",
-        "type": "shell",
+        "type": "process",
         "command": "${env:SHELL}",
         "args": ["-l"],
         "isBackground": true,

@@ -5,7 +5,22 @@ use super::workspace_file::{
 };
 
 const AGGREGATOR_LABEL: &str = "Open All Terminals";
-const KEEP_ALIVE_SUFFIX: &str = "; exec $SHELL -l";
+// Prevents the shell from aborting the -c execution chain upon SIGINT (Ctrl+C).
+// When a foreground child (e.g. yarn dev / next dev) is killed by SIGINT, POSIX WCE
+// (Wait and Cooperative Exit) semantics would otherwise cause the shell running -c
+// to terminate immediately with exit code 130 instead of proceeding to exec "$0" -l.
+// Setting a no-op `:` trap intercepts SIGINT in the shell without propagating
+// abort to subsequent commands, while child processes reset signal handlers to default.
+const KEEP_ALIVE_PREFIX: &str = "trap : INT; ";
+// `$0` (not `$SHELL`) because VS Code's task runner doesn't always propagate the
+// SHELL env var to spawned task processes — when it's unset, `exec $SHELL -l`
+// silently expands to an invalid command, the script ends, and the whole terminal
+// dies for real on the next Ctrl+C instead of dropping into an interactive shell.
+// `$0` is always set correctly: it's the very shell binary this script is running in.
+const KEEP_ALIVE_SUFFIX: &str = "; exec \"$0\" -l";
+// Still recognized on import so existing workspace files written with the old,
+// env-var-dependent form keep importing correctly.
+const LEGACY_KEEP_ALIVE_SUFFIX: &str = "; exec $SHELL -l";
 
 pub fn build_tasks_section(project: &Project) -> Option<VsCodeTasksSection> {
     if !project.terminals_enabled || project.terminal_groups.is_empty() {
@@ -30,7 +45,12 @@ pub fn build_tasks_section(project: &Project) -> Option<VsCodeTasksSection> {
 
             tasks.push(VsCodeTask {
                 label: terminal.label.clone(),
-                task_type: Some("shell".into()),
+                // "process" (not "shell"): a "shell" task makes VS Code run our
+                // command+args through an extra, non-interactive wrapper shell —
+                // that outer shell has no job control, so Ctrl+C kills the whole
+                // tree instead of just the foreground job. "process" execs
+                // command+args directly, with our own `-i` shell as the only one.
+                task_type: Some("process".into()),
                 command: Some("${env:SHELL}".into()),
                 args: build_shell_args(terminal),
                 is_background: Some(true),
@@ -72,7 +92,10 @@ pub fn build_tasks_section(project: &Project) -> Option<VsCodeTasksSection> {
 
 fn build_shell_args(terminal: &Terminal) -> Vec<String> {
     match (&terminal.command, terminal.keep_alive) {
-        (Some(cmd), true) => vec!["-lic".into(), format!("{cmd}{KEEP_ALIVE_SUFFIX}")],
+        (Some(cmd), true) => vec![
+            "-lic".into(),
+            format!("{KEEP_ALIVE_PREFIX}{cmd}{KEEP_ALIVE_SUFFIX}"),
+        ],
         (Some(cmd), false) => vec!["-lic".into(), cmd.clone()],
         (None, _) => vec!["-l".into()],
     }
@@ -84,8 +107,12 @@ pub fn parse_shell_args(args: &[String]) -> (Option<String>, bool) {
     match args {
         [flag] if flag == "-l" => (None, true),
         [flag, script] if flag == "-lic" || flag == "-lc" => {
-            if let Some(cmd) = script.strip_suffix(KEEP_ALIVE_SUFFIX) {
-                (Some(cmd.to_string()), true)
+            if let Some(cmd) = script
+                .strip_suffix(KEEP_ALIVE_SUFFIX)
+                .or_else(|| script.strip_suffix(LEGACY_KEEP_ALIVE_SUFFIX))
+            {
+                let clean = cmd.strip_prefix(KEEP_ALIVE_PREFIX).unwrap_or(cmd);
+                (Some(clean.to_string()), true)
             } else {
                 (Some(script.clone()), false)
             }
@@ -109,7 +136,10 @@ mod tests {
         terminal.keep_alive = true;
         assert_eq!(
             build_shell_args(&terminal),
-            vec!["-lic".to_string(), "npm run dev; exec $SHELL -l".to_string()]
+            vec![
+                "-lic".to_string(),
+                "trap : INT; npm run dev; exec \"$0\" -l".to_string()
+            ]
         );
     }
 
@@ -129,6 +159,25 @@ mod tests {
         let (command, keep_alive) = parse_shell_args(&args);
         assert_eq!(command, terminal.command);
         assert_eq!(keep_alive, terminal.keep_alive);
+    }
+
+    #[test]
+    fn parse_accepts_format_without_trap_prefix() {
+        let args = vec![
+            "-lic".to_string(),
+            "npm run dev; exec \"$0\" -l".to_string(),
+        ];
+        let (command, keep_alive) = parse_shell_args(&args);
+        assert_eq!(command.as_deref(), Some("npm run dev"));
+        assert!(keep_alive);
+    }
+
+    #[test]
+    fn parse_accepts_legacy_shell_env_var_suffix() {
+        let args = vec!["-lic".to_string(), "npm run dev; exec $SHELL -l".to_string()];
+        let (command, keep_alive) = parse_shell_args(&args);
+        assert_eq!(command.as_deref(), Some("npm run dev"));
+        assert!(keep_alive);
     }
 
     #[test]

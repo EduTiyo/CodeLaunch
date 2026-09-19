@@ -95,3 +95,45 @@ fn import_preserves_terminal_count_and_groups() {
     assert_eq!(group2.terminals.len(), 2);
     assert_eq!(group2.terminals[0].command, None);
 }
+
+#[test]
+fn import_legacy_workspace_without_trap_upgrades_to_trap_format_on_render() {
+    let legacy_workspace = r#"{
+      "folders": [
+        { "name": "app", "path": "/path/to/app" }
+      ],
+      "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+          {
+            "label": "Dev Server",
+            "type": "process",
+            "command": "${env:SHELL}",
+            "args": ["-lic", "yarn dev; exec \"$0\" -l"],
+            "presentation": { "reveal": "always", "panel": "dedicated", "group": "group1", "focus": false },
+            "options": { "cwd": "${workspaceFolder:app}" }
+          }
+        ]
+      }
+    }"#;
+
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("legacy.code-workspace");
+    std::fs::write(&file_path, legacy_workspace).unwrap();
+
+    let project = parse_vscode_workspace(&file_path).unwrap();
+    let term = &project.terminal_groups[0].terminals[0];
+    assert_eq!(term.command.as_deref(), Some("yarn dev"));
+    assert!(term.keep_alive);
+
+    let doc = build_workspace_document(&project).unwrap();
+    let task = &doc.tasks.unwrap().tasks[0];
+    assert_eq!(
+        task.args,
+        vec![
+            "-lic".to_string(),
+            "trap : INT; yarn dev; exec \"$0\" -l".to_string()
+        ]
+    );
+}
+

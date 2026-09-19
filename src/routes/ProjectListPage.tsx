@@ -27,6 +27,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Props {
   onEdit: (id: string | null) => void;
@@ -36,6 +44,7 @@ export function ProjectListPage({ onEdit }: Props) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null);
 
   const refresh = () => listProjects().then(setProjects).catch((e) => toast.error(String(e)));
 
@@ -97,10 +106,18 @@ export function ProjectListPage({ onEdit }: Props) {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleConfirmDelete() {
+    if (!projectToDelete) return;
     setBusy(true);
     try {
-      await deleteProject(id);
+      await deleteProject(projectToDelete.id);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(projectToDelete.id);
+        return next;
+      });
+      toast.success(`Projeto "${projectToDelete.name}" excluído.`);
+      setProjectToDelete(null);
       refresh();
     } catch (e) {
       toast.error(String(e));
@@ -168,7 +185,7 @@ export function ProjectListPage({ onEdit }: Props) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleLaunch(p.id)}>Abrir</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(p.id)}>Editar</DropdownMenuItem>
-                      <DropdownMenuItem variant="destructive" onClick={() => handleDelete(p.id)}>
+                      <DropdownMenuItem variant="destructive" onClick={() => setProjectToDelete(p)}>
                         Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -190,6 +207,44 @@ export function ProjectListPage({ onEdit }: Props) {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={!!projectToDelete}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setProjectToDelete(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir projeto</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o projeto{" "}
+              <span className="font-semibold text-foreground">
+                "{projectToDelete?.name}"
+              </span>
+              ? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setProjectToDelete(null)}
+              disabled={busy}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={busy}
+            >
+              {busy ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
