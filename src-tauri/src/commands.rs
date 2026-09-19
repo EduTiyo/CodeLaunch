@@ -128,3 +128,12 @@ pub fn import_vscode_workspace(
         .map_err(|e| e.to_string())?;
     Ok(project)
 }
+
+#[tauri::command]
+pub fn detect_folder_commands(
+    path: String,
+) -> Result<Vec<codelaunch_core::detector::DetectedCommand>, String> {
+    Ok(codelaunch_core::detector::detect_commands_in_folder(
+        std::path::Path::new(&path),
+    ))
+}

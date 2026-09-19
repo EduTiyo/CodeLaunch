@@ -73,6 +73,21 @@
     "viewJson": "View generated JSON",
     "save": "Save",
     "saveAndOpen": "Save and open",
+    "detectScripts": "Detect scripts",
+    "detectScriptsTooltip": "Scan folder for runnable scripts and commands",
+    "detectDialog": {
+      "title": "Auto-detect Commands",
+      "description": "Select the commands detected in {{folder}} to add as integrated terminals.",
+      "scanning": "Scanning folder for scripts...",
+      "noCommandsFound": "No runnable scripts detected in this folder.",
+      "noCommandsHint": "Supported: package.json, Cargo.toml, docker-compose, Makefile, Python, Go",
+      "targetGroup": "Target group",
+      "newGroup": "+ Create new group (\"{{name}}\")",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "addCount": "Add {{count}} terminals",
+      "addCount_one": "Add 1 terminal"
+    },
     "unsavedChangesDialog": {
       "title": "Unsaved changes",
       "description": "You have unsaved changes in this project. Do you want to leave and discard them?",
@@ -83,7 +98,9 @@
       "addFolderFirst": "Add a folder before creating a terminal.",
       "nameRequired": "Project name cannot be empty.",
       "savedAndOpened": "Saved and opened in {{ide}}.",
-      "saved": "Project saved."
+      "saved": "Project saved.",
+      "detectedAdded": "Added {{count}} terminal(s) from {{folder}}.",
+      "detectError": "Failed to scan folder for scripts."
     }
   },
   "terminals": {

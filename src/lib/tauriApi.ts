@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Project, ProjectSummary } from "./types";
+import type { DetectedCommand, Project, ProjectSummary } from "./types";
 
 export function listProjects(): Promise<ProjectSummary[]> {
   return invoke("list_projects");
@@ -33,3 +33,8 @@ export function launchMany(ids: string[]): Promise<string[]> {
 export function importVsCodeWorkspace(path: string): Promise<Project> {
   return invoke("import_vscode_workspace", { path });
 }
+
+export function detectFolderCommands(path: string): Promise<DetectedCommand[]> {
+  return invoke("detect_folder_commands", { path });
+}
+
