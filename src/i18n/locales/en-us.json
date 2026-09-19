@@ -1,0 +1,91 @@
+{
+  "common": {
+    "brand": "CodeLaunch",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "toggleTheme": "Toggle theme",
+    "selectLanguage": "Select language",
+    "ide": "IDE",
+    "name": "Name",
+    "folders": "Folders",
+    "terminals": "Terminals",
+    "actions": "Actions"
+  },
+  "projects": {
+    "title": "Projects",
+    "importWorkspace": "Import .code-workspace...",
+    "newProject": "New project",
+    "emptyDescription": "No projects yet — import an existing .code-workspace or create a new one.",
+    "vsCodeWorkspace": "VS Code Workspace",
+    "table": {
+      "name": "Name",
+      "ide": "IDE",
+      "folders": "Folders",
+      "terminals": "Terminals",
+      "actions": "Actions",
+      "groupCount": "{{count}} group(s)",
+      "groupCount_one": "{{count}} group",
+      "groupCount_other": "{{count}} groups"
+    },
+    "actions": {
+      "launch": "Open",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "selectedCount": "{{count}} selected",
+    "launchSelected": "Open selected",
+    "deleteDialog": {
+      "title": "Delete project",
+      "description": "Are you sure you want to delete project <strong title=\"\">\"{{name}}\"</strong>? This action cannot be undone.",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "confirm": "Delete"
+    },
+    "toasts": {
+      "imported": "Imported \"{{name}}\".",
+      "workspaceOpened": "Workspace opened.",
+      "workspacesOpened": "{{count}} workspace(s) opened.",
+      "completedWithErrors": "Completed with errors: {{errors}}",
+      "projectDeleted": "Project \"{{name}}\" deleted."
+    }
+  },
+  "editor": {
+    "defaultProjectName": "New Project",
+    "name": "Name",
+    "ide": "IDE",
+    "comingSoon": "Other IDEs (Cursor, JetBrains) coming soon.",
+    "folders": "Folders",
+    "addFolder": "Folder",
+    "noFolders": "No folders yet.",
+    "integratedTerminals": "Integrated terminals",
+    "viewJson": "View generated JSON",
+    "save": "Save",
+    "saveAndOpen": "Save and open",
+    "toasts": {
+      "addFolderFirst": "Add a folder before creating a terminal.",
+      "savedAndOpened": "Saved and opened in VS Code.",
+      "saved": "Project saved."
+    }
+  },
+  "terminals": {
+    "group": "Group",
+    "addGroup": "Group",
+    "terminal": "Terminal",
+    "addTerminal": "Terminal",
+    "removeGroup": "Remove group",
+    "emptyGroup": "Empty group — add a terminal.",
+    "terminalName": "Terminal name",
+    "removeTerminal": "Remove terminal",
+    "folderPlaceholder": "Folder",
+    "commandPlaceholder": "command (optional)",
+    "keepAlive": "keep alive after command"
+  },
+  "languages": {
+    "en-us": "English (en-US)",
+    "pt-br": "Português (pt-BR)"
+  }
+}

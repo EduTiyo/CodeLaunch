@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { FolderInput, MoreHorizontal, Plus, Rocket } from "lucide-react";
+import { useTranslation, Trans } from "react-i18next";
 import type { ProjectSummary } from "@/lib/types";
 import {
   deleteProject,
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function ProjectListPage({ onEdit }: Props) {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -63,13 +65,13 @@ export function ProjectListPage({ onEdit }: Props) {
   async function handleImport() {
     const path = await open({
       multiple: false,
-      filters: [{ name: "VS Code Workspace", extensions: ["code-workspace"] }],
+      filters: [{ name: t("projects.vsCodeWorkspace"), extensions: ["code-workspace"] }],
     });
     if (!path || Array.isArray(path)) return;
     setBusy(true);
     try {
       const project = await importVsCodeWorkspace(path);
-      toast.success(`Importado "${project.name}".`);
+      toast.success(t("projects.toasts.imported", { name: project.name }));
       refresh();
     } catch (e) {
       toast.error(String(e));
@@ -82,7 +84,7 @@ export function ProjectListPage({ onEdit }: Props) {
     setBusy(true);
     try {
       await launchProject(id);
-      toast.success("Workspace aberto.");
+      toast.success(t("projects.toasts.workspaceOpened"));
     } catch (e) {
       toast.error(String(e));
     } finally {
@@ -95,9 +97,9 @@ export function ProjectListPage({ onEdit }: Props) {
     try {
       const errors = await launchMany([...selected]);
       if (errors.length === 0) {
-        toast.success(`${selected.size} workspace(s) aberto(s).`);
+        toast.success(t("projects.toasts.workspacesOpened", { count: selected.size }));
       } else {
-        toast.error(`Concluído com erros: ${errors.join("; ")}`);
+        toast.error(t("projects.toasts.completedWithErrors", { errors: errors.join("; ") }));
       }
     } catch (e) {
       toast.error(String(e));
@@ -116,7 +118,7 @@ export function ProjectListPage({ onEdit }: Props) {
         next.delete(projectToDelete.id);
         return next;
       });
-      toast.success(`Projeto "${projectToDelete.name}" excluído.`);
+      toast.success(t("projects.toasts.projectDeleted", { name: projectToDelete.name }));
       setProjectToDelete(null);
       refresh();
     } catch (e) {
@@ -129,15 +131,15 @@ export function ProjectListPage({ onEdit }: Props) {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6 pb-24">
       <div className="flex items-center justify-between">
-        <h1 className="text-sm font-medium text-muted-foreground">Projetos</h1>
+        <h1 className="text-sm font-medium text-muted-foreground">{t("projects.title")}</h1>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleImport} disabled={busy}>
             <FolderInput className="size-3.5" />
-            Importar .code-workspace...
+            {t("projects.importWorkspace")}
           </Button>
           <Button size="sm" onClick={() => onEdit(null)} disabled={busy}>
             <Plus className="size-3.5" />
-            Novo projeto
+            {t("projects.newProject")}
           </Button>
         </div>
       </div>
@@ -146,7 +148,7 @@ export function ProjectListPage({ onEdit }: Props) {
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
           <Rocket className="size-6 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Nenhum projeto ainda — importe um .code-workspace existente ou crie um novo.
+            {t("projects.emptyDescription")}
           </p>
         </div>
       ) : (
@@ -154,10 +156,10 @@ export function ProjectListPage({ onEdit }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" />
-              <TableHead>Nome</TableHead>
-              <TableHead>IDE</TableHead>
-              <TableHead>Pastas</TableHead>
-              <TableHead>Terminais</TableHead>
+              <TableHead>{t("projects.table.name")}</TableHead>
+              <TableHead>{t("projects.table.ide")}</TableHead>
+              <TableHead>{t("projects.table.folders")}</TableHead>
+              <TableHead>{t("projects.table.terminals")}</TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -173,7 +175,7 @@ export function ProjectListPage({ onEdit }: Props) {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{p.folder_count}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {p.terminal_group_count > 0 ? `${p.terminal_group_count} grupo(s)` : "—"}
+                  {p.terminal_group_count > 0 ? t("projects.table.groupCount", { count: p.terminal_group_count }) : "—"}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -183,10 +185,14 @@ export function ProjectListPage({ onEdit }: Props) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleLaunch(p.id)}>Abrir</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(p.id)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleLaunch(p.id)}>
+                        {t("projects.actions.launch")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(p.id)}>
+                        {t("projects.actions.edit")}
+                      </DropdownMenuItem>
                       <DropdownMenuItem variant="destructive" onClick={() => setProjectToDelete(p)}>
-                        Excluir
+                        {t("projects.actions.delete")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -200,9 +206,11 @@ export function ProjectListPage({ onEdit }: Props) {
       {selected.size > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur">
           <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
-            <span className="text-sm text-muted-foreground">{selected.size} selecionado(s)</span>
+            <span className="text-sm text-muted-foreground">
+              {t("projects.selectedCount", { count: selected.size })}
+            </span>
             <Button onClick={handleLaunchSelected} disabled={busy}>
-              Abrir selecionados
+              {t("projects.launchSelected")}
             </Button>
           </div>
         </div>
@@ -218,13 +226,15 @@ export function ProjectListPage({ onEdit }: Props) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Excluir projeto</DialogTitle>
+            <DialogTitle>{t("projects.deleteDialog.title")}</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir o projeto{" "}
-              <span className="font-semibold text-foreground">
-                "{projectToDelete?.name}"
-              </span>
-              ? Esta ação não pode ser desfeita.
+              <Trans
+                i18nKey="projects.deleteDialog.description"
+                values={{ name: projectToDelete?.name }}
+                components={{
+                  strong: <span className="font-semibold text-foreground" />,
+                }}
+              />
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -233,14 +243,14 @@ export function ProjectListPage({ onEdit }: Props) {
               onClick={() => setProjectToDelete(null)}
               disabled={busy}
             >
-              Cancelar
+              {t("projects.deleteDialog.cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
               disabled={busy}
             >
-              {busy ? "Excluindo..." : "Excluir"}
+              {busy ? t("projects.deleteDialog.deleting") : t("projects.deleteDialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Folder, Terminal, TerminalGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { TerminalGroupPanel } from "@/components/TerminalGroupPanel";
@@ -22,6 +23,8 @@ export function TerminalGrid({
   onUpdateTerminal,
   onRemoveTerminal,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-col gap-4">
       {groups.map((group) => (
@@ -37,7 +40,7 @@ export function TerminalGrid({
       ))}
       <Button variant="outline" size="sm" className="self-start" onClick={onAddGroup}>
         <Plus className="size-3.5" />
-        Grupo
+        {t("terminals.addGroup")}
       </Button>
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { ChevronDown, FolderPlus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Folder, Project, Terminal, TerminalGroup } from "@/lib/types";
 import { emptyProject, newId } from "@/lib/types";
 import { launchProject, loadProject, previewWorkspace, saveProject } from "@/lib/tauriApi";
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function ProjectEditorPage({ projectId }: Props) {
+  const { t } = useTranslation();
   const [project, setProject] = useState<Project | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -25,12 +27,12 @@ export function ProjectEditorPage({ projectId }: Props) {
     if (projectId) {
       loadProject(projectId).then(setProject).catch((e) => toast.error(String(e)));
     } else {
-      setProject(emptyProject("Novo Projeto"));
+      setProject(emptyProject(t("editor.defaultProjectName")));
     }
-  }, [projectId]);
+  }, [projectId, t]);
 
   if (!project) {
-    return <p className="p-6 text-sm text-muted-foreground">Carregando...</p>;
+    return <p className="p-6 text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 
   function update(patch: Partial<Project>) {
@@ -70,7 +72,7 @@ export function ProjectEditorPage({ projectId }: Props) {
 
   function addTerminal(groupId: string) {
     if (project!.folders.length === 0) {
-      toast.error("Adicione uma pasta antes de criar um terminal.");
+      toast.error(t("editor.toasts.addFolderFirst"));
       return;
     }
     // VS Code task labels must be unique across the whole workspace file, not just
@@ -86,7 +88,7 @@ export function ProjectEditorPage({ projectId }: Props) {
                 ...g.terminals,
                 {
                   id: newId(),
-                  label: `Terminal ${totalTerminals + 1}`,
+                  label: `${t("terminals.terminal")} ${totalTerminals + 1}`,
                   folder_id: project!.folders[0].id,
                   command: null,
                   keep_alive: true,
@@ -122,9 +124,9 @@ export function ProjectEditorPage({ projectId }: Props) {
       setProject(saved);
       if (andOpen) {
         await launchProject(saved.id);
-        toast.success("Salvo e aberto no VS Code.");
+        toast.success(t("editor.toasts.savedAndOpened"));
       } else {
-        toast.success("Projeto salvo.");
+        toast.success(t("editor.toasts.saved"));
       }
     } catch (e) {
       toast.error(String(e));
@@ -144,7 +146,7 @@ export function ProjectEditorPage({ projectId }: Props) {
       <div className="flex flex-col gap-4">
         <div className="flex items-end gap-4">
           <div className="flex-1 space-y-1.5">
-            <Label htmlFor="project-name">Nome</Label>
+            <Label htmlFor="project-name">{t("editor.name")}</Label>
             <Input
               id="project-name"
               value={project.name}
@@ -152,7 +154,7 @@ export function ProjectEditorPage({ projectId }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>IDE</Label>
+            <Label>{t("editor.ide")}</Label>
             <Select value={project.ide} disabled>
               <SelectTrigger className="w-40">
                 <SelectValue />
@@ -163,19 +165,19 @@ export function ProjectEditorPage({ projectId }: Props) {
             </Select>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">Outras IDEs (Cursor, JetBrains) em breve.</p>
+        <p className="text-xs text-muted-foreground">{t("editor.comingSoon")}</p>
       </div>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Pastas</h2>
+          <h2 className="text-sm font-medium">{t("editor.folders")}</h2>
           <Button variant="outline" size="sm" onClick={addFolder}>
             <FolderPlus className="size-3.5" />
-            Pasta
+            {t("editor.addFolder")}
           </Button>
         </div>
         {project.folders.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma pasta ainda.</p>
+          <p className="text-sm text-muted-foreground">{t("editor.noFolders")}</p>
         ) : (
           <div className="divide-y divide-border rounded-lg border border-border">
             {project.folders.map((f) => (
@@ -206,7 +208,7 @@ export function ProjectEditorPage({ projectId }: Props) {
             checked={project.terminals_enabled}
             onCheckedChange={(terminals_enabled) => update({ terminals_enabled })}
           />
-          Terminais integrados
+          {t("editor.integratedTerminals")}
         </Label>
 
         {project.terminals_enabled && (
@@ -225,7 +227,7 @@ export function ProjectEditorPage({ projectId }: Props) {
       <section>
         <Button variant="ghost" size="sm" onClick={handlePreview}>
           <ChevronDown className="size-3.5" />
-          Ver JSON gerado
+          {t("editor.viewJson")}
         </Button>
         {preview && (
           <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">
@@ -237,9 +239,9 @@ export function ProjectEditorPage({ projectId }: Props) {
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-end gap-2 px-6 py-3">
           <Button variant="outline" onClick={() => handleSave(false)}>
-            Salvar
+            {t("common.save")}
           </Button>
-          <Button onClick={() => handleSave(true)}>Salvar e abrir</Button>
+          <Button onClick={() => handleSave(true)}>{t("editor.saveAndOpen")}</Button>
         </div>
       </div>
     </div>
