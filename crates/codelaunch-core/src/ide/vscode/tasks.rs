@@ -51,7 +51,7 @@ pub fn build_tasks_section(project: &Project) -> Option<VsCodeTasksSection> {
                 // tree instead of just the foreground job. "process" execs
                 // command+args directly, with our own `-i` shell as the only one.
                 task_type: Some("process".into()),
-                command: Some("${env:SHELL}".into()),
+                command: Some(shell_command()),
                 args: build_shell_args(terminal),
                 is_background: Some(true),
                 problem_matcher: Some(vec![]),
@@ -90,14 +90,38 @@ pub fn build_tasks_section(project: &Project) -> Option<VsCodeTasksSection> {
     })
 }
 
-fn build_shell_args(terminal: &Terminal) -> Vec<String> {
-    match (&terminal.command, terminal.keep_alive) {
-        (Some(cmd), true) => vec![
-            "-lic".into(),
-            format!("{KEEP_ALIVE_PREFIX}{cmd}{KEEP_ALIVE_SUFFIX}"),
-        ],
-        (Some(cmd), false) => vec!["-lic".into(), cmd.clone()],
-        (None, _) => vec!["-l".into()],
+pub fn shell_command() -> String {
+    shell_command_for_os(cfg!(target_os = "windows"))
+}
+
+pub fn shell_command_for_os(is_windows: bool) -> String {
+    if is_windows {
+        "powershell.exe".into()
+    } else {
+        "${env:SHELL}".into()
+    }
+}
+
+pub fn build_shell_args(terminal: &Terminal) -> Vec<String> {
+    build_shell_args_for_os(terminal, cfg!(target_os = "windows"))
+}
+
+pub fn build_shell_args_for_os(terminal: &Terminal, is_windows: bool) -> Vec<String> {
+    if is_windows {
+        match (&terminal.command, terminal.keep_alive) {
+            (Some(cmd), true) => vec!["-NoExit".into(), "-Command".into(), cmd.clone()],
+            (Some(cmd), false) => vec!["-Command".into(), cmd.clone()],
+            (None, _) => vec!["-NoExit".into()],
+        }
+    } else {
+        match (&terminal.command, terminal.keep_alive) {
+            (Some(cmd), true) => vec![
+                "-lic".into(),
+                format!("{KEEP_ALIVE_PREFIX}{cmd}{KEEP_ALIVE_SUFFIX}"),
+            ],
+            (Some(cmd), false) => vec!["-lic".into(), cmd.clone()],
+            (None, _) => vec!["-l".into()],
+        }
     }
 }
 
@@ -105,7 +129,17 @@ fn build_shell_args(terminal: &Terminal) -> Vec<String> {
 /// Returns `(command, keep_alive)`.
 pub fn parse_shell_args(args: &[String]) -> (Option<String>, bool) {
     match args {
+        // POSIX empty command / interactive login shell
         [flag] if flag == "-l" => (None, true),
+        // Windows empty command / interactive shell
+        [flag] if flag == "-NoExit" => (None, true),
+        // Windows command with keep_alive
+        [flag1, flag2, script] if flag1 == "-NoExit" && flag2 == "-Command" => {
+            (Some(script.clone()), true)
+        }
+        // Windows command without keep_alive
+        [flag, script] if flag == "-Command" => (Some(script.clone()), false),
+        // POSIX command (with or without keep_alive)
         [flag, script] if flag == "-lic" || flag == "-lc" => {
             if let Some(cmd) = script
                 .strip_suffix(KEEP_ALIVE_SUFFIX)
@@ -193,5 +227,32 @@ mod tests {
         let (command, keep_alive) = parse_shell_args(&args);
         assert_eq!(command, terminal.command);
         assert_eq!(keep_alive, terminal.keep_alive);
+    }
+
+    #[test]
+    fn windows_shell_args_and_parse_roundtrip() {
+        let mut terminal = Terminal::new("Backend 1", uuid::Uuid::new_v4(), 0);
+        terminal.command = Some("npm run dev".into());
+        terminal.keep_alive = true;
+
+        let args = build_shell_args_for_os(&terminal, true);
+        assert_eq!(args, vec!["-NoExit", "-Command", "npm run dev"]);
+        let (parsed_cmd, keep_alive) = parse_shell_args(&args);
+        assert_eq!(parsed_cmd.as_deref(), Some("npm run dev"));
+        assert!(keep_alive);
+
+        terminal.keep_alive = false;
+        let args_no_keep = build_shell_args_for_os(&terminal, true);
+        assert_eq!(args_no_keep, vec!["-Command", "npm run dev"]);
+        let (parsed_no_keep, keep_alive) = parse_shell_args(&args_no_keep);
+        assert_eq!(parsed_no_keep.as_deref(), Some("npm run dev"));
+        assert!(!keep_alive);
+
+        let empty_term = Terminal::new("Shell", uuid::Uuid::new_v4(), 0);
+        let args_empty = build_shell_args_for_os(&empty_term, true);
+        assert_eq!(args_empty, vec!["-NoExit"]);
+        let (parsed_empty, keep_alive) = parse_shell_args(&args_empty);
+        assert_eq!(parsed_empty, None);
+        assert!(keep_alive);
     }
 }

@@ -68,12 +68,14 @@ pub fn save_project(
 
 #[tauri::command]
 pub fn delete_project(state: tauri::State<SharedState>, id: Uuid) -> Result<(), String> {
-    state
-        .lock()
-        .unwrap()
-        .repo
-        .delete(id)
-        .map_err(|e| e.to_string())
+    let guard = state.lock().unwrap();
+    guard.repo.delete(id).map_err(|e| e.to_string())?;
+
+    let project_workspace_dir = guard.workspaces_dir.join(id.to_string());
+    if project_workspace_dir.exists() {
+        let _ = std::fs::remove_dir_all(project_workspace_dir);
+    }
+    Ok(())
 }
 
 #[tauri::command]

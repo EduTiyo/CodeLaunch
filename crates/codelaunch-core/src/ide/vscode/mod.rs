@@ -34,9 +34,20 @@ impl IdeAdapter for VsCodeAdapter {
 
     fn render(&self, project: &Project, output_dir: &Path) -> Result<RenderedWorkspace> {
         let doc = build_workspace_document(project)?;
-        fs::create_dir_all(output_dir)?;
+        let project_dir = output_dir.join(project.id.to_string());
+        fs::create_dir_all(&project_dir)?;
 
-        let path = output_dir.join(format!("{}.code-workspace", slugify(&project.name)));
+        // Remove previous workspace file(s) in this project's folder (e.g. if the project was renamed)
+        if let Ok(entries) = fs::read_dir(&project_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("code-workspace") {
+                    let _ = fs::remove_file(path);
+                }
+            }
+        }
+
+        let path = project_dir.join(format!("{}.code-workspace", slugify(&project.name)));
         let json = serde_json::to_string_pretty(&doc)?;
         fs::write(&path, json)?;
 
@@ -227,5 +238,51 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn render_isolates_workspaces_by_project_id_preventing_collisions() {
+        let adapter = VsCodeAdapter::default();
+        let tmp = tempfile::tempdir().unwrap();
+
+        let project1 = Project::new("My App", IdeKind::VsCode);
+        let project2 = Project::new("My App", IdeKind::VsCode);
+        assert_ne!(project1.id, project2.id);
+
+        let rendered1 = adapter.render(&project1, tmp.path()).unwrap();
+        let rendered2 = adapter.render(&project2, tmp.path()).unwrap();
+
+        assert_ne!(rendered1.entry_path, rendered2.entry_path);
+        assert!(rendered1.entry_path.is_file());
+        assert!(rendered2.entry_path.is_file());
+        assert_eq!(
+            rendered1.entry_path.file_name(),
+            Some(std::ffi::OsStr::new("my-app.code-workspace"))
+        );
+        assert_eq!(
+            rendered2.entry_path.file_name(),
+            Some(std::ffi::OsStr::new("my-app.code-workspace"))
+        );
+    }
+
+    #[test]
+    fn render_cleans_up_old_workspace_on_rename() {
+        let adapter = VsCodeAdapter::default();
+        let tmp = tempfile::tempdir().unwrap();
+
+        let mut project = Project::new("Initial Name", IdeKind::VsCode);
+        let rendered1 = adapter.render(&project, tmp.path()).unwrap();
+        assert!(rendered1.entry_path.is_file());
+        assert!(rendered1
+            .entry_path
+            .ends_with("initial-name.code-workspace"));
+
+        project.name = "Renamed Project".into();
+        let rendered2 = adapter.render(&project, tmp.path()).unwrap();
+        assert!(rendered2.entry_path.is_file());
+        assert!(rendered2
+            .entry_path
+            .ends_with("renamed-project.code-workspace"));
+        assert!(!rendered1.entry_path.exists());
     }
 }
