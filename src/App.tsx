@@ -67,7 +67,10 @@ function AppShell() {
               {t("common.back")}
             </Button>
           ) : (
-            <span className="text-sm font-semibold">CodeLaunch</span>
+            <div className="flex items-center gap-2">
+              <img src="/icon.svg" alt="CodeLaunch" className="size-5" />
+              <span className="text-sm font-semibold">CodeLaunch</span>
+            </div>
           )}
           <div className="flex items-center gap-2">
             <LanguageSelect />
