@@ -3,8 +3,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { ChevronDown, FolderPlus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Folder, Project, Terminal, TerminalGroup } from "@/lib/types";
-import { emptyProject, newId } from "@/lib/types";
+import type { Folder, IdeKind, Project, Terminal, TerminalGroup } from "@/lib/types";
+import { emptyProject, IDE_LABELS, IDE_OPTIONS, newId } from "@/lib/types";
 import { launchProject, loadProject, previewWorkspace, saveProject } from "@/lib/tauriApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -244,7 +244,11 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
       onDirtyChange?.(false);
       if (andOpen) {
         await launchProject(saved.id);
-        toast.success(t("editor.toasts.savedAndOpened"));
+        toast.success(
+          t("editor.toasts.savedAndOpened", {
+            ide: IDE_LABELS[saved.ide] ?? "IDE",
+          })
+        );
       } else {
         toast.success(t("editor.toasts.saved"));
       }
@@ -277,12 +281,19 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label>{t("editor.ide")}</Label>
-            <Select value={project.ide} disabled>
-              <SelectTrigger className="w-40">
+            <Select
+              value={project.ide}
+              onValueChange={(ide: IdeKind) => update({ ide })}
+            >
+              <SelectTrigger className="w-44">
                 <SelectValue placeholder="VS Code" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="vs-code">VS Code</SelectItem>
+                {IDE_OPTIONS.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

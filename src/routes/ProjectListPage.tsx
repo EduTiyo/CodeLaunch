@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Copy, FolderInput, MoreHorizontal, Play, Plus, Rocket, Search, X } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 import type { Project, ProjectSummary } from "@/lib/types";
-import { newId } from "@/lib/types";
+import { IDE_LABELS, newId } from "@/lib/types";
 import {
   deleteProject,
   importVsCodeWorkspace,
@@ -253,7 +253,7 @@ export function ProjectListPage({ onEdit }: Props) {
                 </TableCell>
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">VS Code</Badge>
+                  <Badge variant="secondary">{IDE_LABELS[p.ide] ?? p.ide}</Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{p.folder_count}</TableCell>
                 <TableCell className="text-muted-foreground">
