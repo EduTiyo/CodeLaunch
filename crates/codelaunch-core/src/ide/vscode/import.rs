@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 
 use crate::model::{Folder, IdeKind, Project, Terminal, TerminalGroup};
 
+use super::super::{IdeError, Result};
 use super::tasks::{is_aggregator_task, parse_shell_args};
 use super::workspace_file::VsCodeWorkspaceFile;
-use super::super::{IdeError, Result};
 
 /// Parses an existing `.code-workspace` file (JSON5, as VS Code allows comments and
 /// trailing commas) back into a [`Project`], reversing [`super::build_workspace_document`].
@@ -97,15 +97,14 @@ pub fn parse_vscode_workspace(path: &Path) -> Result<Project> {
         project.terminal_groups.push(group);
     }
 
-    project
-        .terminal_groups
-        .sort_by_key(|g| g.order);
+    project.terminal_groups.sort_by_key(|g| g.order);
 
     Ok(project)
 }
 
 fn parse_group_order(key: &str) -> Option<u32> {
-    key.strip_prefix("group").and_then(|s| s.parse::<u32>().ok())
+    key.strip_prefix("group")
+        .and_then(|s| s.parse::<u32>().ok())
 }
 
 /// Joins `base_dir` with `path` and lexically collapses `.`/`..` components,

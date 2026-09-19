@@ -1,7 +1,5 @@
 mod commands;
 
-use std::path::PathBuf;
-
 use commands::{
     build_state, delete_project, import_vscode_workspace, launch_many, launch_project,
     list_projects, load_project, preview_workspace, save_project,
@@ -9,6 +7,8 @@ use commands::{
 
 #[cfg(target_os = "macos")]
 fn ensure_sensible_path() {
+    use std::path::PathBuf;
+
     if let Some(path) = std::env::var_os("PATH") {
         let mut paths = std::env::split_paths(&path).collect::<Vec<_>>();
         let common_dirs = [

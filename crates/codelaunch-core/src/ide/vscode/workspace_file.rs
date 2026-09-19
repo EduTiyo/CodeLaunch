@@ -97,6 +97,9 @@ pub fn default_vscode_settings() -> Map<String, Value> {
         "terminal.integrated.splitCwd".into(),
         Value::String("inherited".into()),
     );
-    settings.insert("task.allowAutomaticTasks".into(), Value::String("on".into()));
+    settings.insert(
+        "task.allowAutomaticTasks".into(),
+        Value::String("on".into()),
+    );
     settings
 }
