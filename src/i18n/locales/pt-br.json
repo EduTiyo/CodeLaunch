@@ -67,6 +67,7 @@
     "saveAndOpen": "Salvar e abrir",
     "toasts": {
       "addFolderFirst": "Adicione uma pasta antes de criar um terminal.",
+      "nameRequired": "O nome do projeto não pode ser vazio.",
       "savedAndOpened": "Salvo e aberto no VS Code.",
       "saved": "Projeto salvo."
     }

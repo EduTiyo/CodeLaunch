@@ -45,14 +45,33 @@ export function ProjectEditorPage({ projectId }: Props) {
     const paths = Array.isArray(result) ? result : [result];
     const newFolders: Folder[] = paths.map((path) => ({
       id: newId(),
-      name: path.split("/").filter(Boolean).pop() ?? "folder",
+      name: path.split(/[/\\]/).filter(Boolean).pop() ?? "folder",
       path,
     }));
-    update({ folders: [...project!.folders, ...newFolders] });
+    const updatedFolders = [...project!.folders, ...newFolders];
+    const firstFolderId = updatedFolders[0]?.id;
+    // Heal any terminals that may be missing a valid folder reference
+    const updatedGroups = project!.terminal_groups.map((g) => ({
+      ...g,
+      terminals: g.terminals.map((t) =>
+        !updatedFolders.some((f) => f.id === t.folder_id) && firstFolderId
+          ? { ...t, folder_id: firstFolderId }
+          : t
+      ),
+    }));
+    update({ folders: updatedFolders, terminal_groups: updatedGroups });
   }
 
   function removeFolder(id: string) {
-    update({ folders: project!.folders.filter((f) => f.id !== id) });
+    const remainingFolders = project!.folders.filter((f) => f.id !== id);
+    const fallbackFolderId = remainingFolders[0]?.id ?? "";
+    const updatedGroups = project!.terminal_groups.map((g) => ({
+      ...g,
+      terminals: g.terminals.map((t) =>
+        t.folder_id === id ? { ...t, folder_id: fallbackFolderId } : t
+      ),
+    }));
+    update({ folders: remainingFolders, terminal_groups: updatedGroups });
   }
 
   function addGroup() {
@@ -119,6 +138,18 @@ export function ProjectEditorPage({ projectId }: Props) {
   }
 
   async function handleSave(andOpen: boolean) {
+    if (!project!.name.trim()) {
+      toast.error(t("editor.toasts.nameRequired"));
+      return;
+    }
+    if (
+      project!.terminals_enabled &&
+      project!.folders.length === 0 &&
+      project!.terminal_groups.some((g) => g.terminals.length > 0)
+    ) {
+      toast.error(t("editor.toasts.addFolderFirst"));
+      return;
+    }
     try {
       const saved = await saveProject(project!);
       setProject(saved);
