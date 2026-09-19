@@ -1,0 +1,91 @@
+{
+  "common": {
+    "brand": "CodeLaunch",
+    "back": "Voltar",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "loading": "Carregando...",
+    "toggleTheme": "Alternar tema",
+    "selectLanguage": "Selecionar idioma",
+    "ide": "IDE",
+    "name": "Nome",
+    "folders": "Pastas",
+    "terminals": "Terminais",
+    "actions": "Ações"
+  },
+  "projects": {
+    "title": "Projetos",
+    "importWorkspace": "Importar .code-workspace...",
+    "newProject": "Novo projeto",
+    "emptyDescription": "Nenhum projeto ainda — importe um .code-workspace existente ou crie um novo.",
+    "vsCodeWorkspace": "VS Code Workspace",
+    "table": {
+      "name": "Nome",
+      "ide": "IDE",
+      "folders": "Pastas",
+      "terminals": "Terminais",
+      "actions": "Ações",
+      "groupCount": "{{count}} grupo(s)",
+      "groupCount_one": "{{count}} grupo",
+      "groupCount_other": "{{count}} grupos"
+    },
+    "actions": {
+      "launch": "Abrir",
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "selectedCount": "{{count}} selecionado(s)",
+    "launchSelected": "Abrir selecionados",
+    "deleteDialog": {
+      "title": "Excluir projeto",
+      "description": "Tem certeza que deseja excluir o projeto <strong title=\"\">\"{{name}}\"</strong>? Esta ação não pode ser desfeita.",
+      "cancel": "Cancelar",
+      "deleting": "Excluindo...",
+      "confirm": "Excluir"
+    },
+    "toasts": {
+      "imported": "Importado \"{{name}}\".",
+      "workspaceOpened": "Workspace aberto.",
+      "workspacesOpened": "{{count}} workspace(s) aberto(s).",
+      "completedWithErrors": "Concluído com erros: {{errors}}",
+      "projectDeleted": "Projeto \"{{name}}\" excluído."
+    }
+  },
+  "editor": {
+    "defaultProjectName": "Novo Projeto",
+    "name": "Nome",
+    "ide": "IDE",
+    "comingSoon": "Outras IDEs (Cursor, JetBrains) em breve.",
+    "folders": "Pastas",
+    "addFolder": "Pasta",
+    "noFolders": "Nenhuma pasta ainda.",
+    "integratedTerminals": "Terminais integrados",
+    "viewJson": "Ver JSON gerado",
+    "save": "Salvar",
+    "saveAndOpen": "Salvar e abrir",
+    "toasts": {
+      "addFolderFirst": "Adicione uma pasta antes de criar um terminal.",
+      "savedAndOpened": "Salvo e aberto no VS Code.",
+      "saved": "Projeto salvo."
+    }
+  },
+  "terminals": {
+    "group": "Grupo",
+    "addGroup": "Grupo",
+    "terminal": "Terminal",
+    "addTerminal": "Terminal",
+    "removeGroup": "Remover grupo",
+    "emptyGroup": "Grupo vazio — adicione um terminal.",
+    "terminalName": "Nome do terminal",
+    "removeTerminal": "Remover terminal",
+    "folderPlaceholder": "Pasta",
+    "commandPlaceholder": "comando (opcional)",
+    "keepAlive": "manter vivo após o comando"
+  },
+  "languages": {
+    "en-us": "English (en-US)",
+    "pt-br": "Português (pt-BR)"
+  }
+}

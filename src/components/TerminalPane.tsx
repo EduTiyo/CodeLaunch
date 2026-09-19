@@ -1,4 +1,5 @@
 import { SquareTerminal, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Folder, Terminal } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +16,8 @@ interface Props {
 
 /** One pane in a terminal split — styled like a real VS Code terminal tab. */
 export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex min-w-48 flex-1 flex-col border-r border-border last:border-r-0">
       <div className="flex items-center gap-1.5 border-b border-border bg-muted px-2 py-1.5">
@@ -23,14 +26,14 @@ export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
           value={terminal.label}
           onChange={(e) => onChange({ label: e.target.value })}
           className="min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
-          aria-label="Nome do terminal"
+          aria-label={t("terminals.terminalName")}
         />
         <Button
           variant="ghost"
           size="icon"
           className="size-5 shrink-0"
           onClick={onRemove}
-          aria-label="Remover terminal"
+          aria-label={t("terminals.removeTerminal")}
         >
           <X className="size-3.5" />
         </Button>
@@ -39,7 +42,7 @@ export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
       <div className="flex flex-col gap-2 p-2">
         <Select value={terminal.folder_id} onValueChange={(folder_id) => onChange({ folder_id })}>
           <SelectTrigger size="sm" className="w-full font-mono text-xs">
-            <SelectValue placeholder="Pasta" />
+            <SelectValue placeholder={t("terminals.folderPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
             {folders.map((f) => (
@@ -51,7 +54,7 @@ export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
         </Select>
 
         <Textarea
-          placeholder="comando (opcional)"
+          placeholder={t("terminals.commandPlaceholder")}
           value={terminal.command ?? ""}
           onChange={(e) => onChange({ command: e.target.value || null })}
           className="min-h-14 resize-none font-mono text-xs"
@@ -62,7 +65,7 @@ export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
             checked={terminal.keep_alive}
             onCheckedChange={(keep_alive) => onChange({ keep_alive })}
           />
-          manter vivo após o comando
+          {t("terminals.keepAlive")}
         </Label>
       </div>
     </div>

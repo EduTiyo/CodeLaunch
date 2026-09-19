@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Folder, Terminal, TerminalGroup } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { TerminalPane } from "@/components/TerminalPane";
@@ -22,6 +23,8 @@ export function TerminalGroupPanel({
   onRemoveTerminal,
   onRemoveGroup,
 }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -29,9 +32,15 @@ export function TerminalGroupPanel({
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={onAddTerminal}>
             <Plus className="size-3.5" />
-            Terminal
+            {t("terminals.addTerminal")}
           </Button>
-          <Button variant="ghost" size="icon" className="size-7 text-muted-foreground" onClick={onRemoveGroup}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground"
+            onClick={onRemoveGroup}
+            aria-label={t("terminals.removeGroup")}
+          >
             <Trash2 className="size-3.5" />
           </Button>
         </div>
@@ -40,7 +49,7 @@ export function TerminalGroupPanel({
       <div className="flex overflow-hidden rounded-lg border border-border">
         {group.terminals.length === 0 ? (
           <p className="w-full p-4 text-center text-xs text-muted-foreground">
-            Grupo vazio — adicione um terminal.
+            {t("terminals.emptyGroup")}
           </p>
         ) : (
           group.terminals.map((terminal) => (

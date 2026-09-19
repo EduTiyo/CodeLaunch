@@ -1,22 +1,25 @@
 import { useState } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { ArrowLeft, Moon, Sun } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { ProjectListPage } from "@/routes/ProjectListPage";
 import { ProjectEditorPage } from "@/routes/ProjectEditorPage";
+import { LanguageSelect } from "@/components/LanguageSelect";
 
 type View = { mode: "list" } | { mode: "edit"; projectId: string | null };
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation();
   return (
     <Button
       variant="ghost"
       size="icon"
       className="relative size-8"
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      aria-label="Alternar tema"
+      aria-label={t("common.toggleTheme")}
     >
       <Sun className="size-4 scale-100 transition-transform dark:scale-0" />
       <Moon className="absolute size-4 scale-0 transition-transform dark:scale-100" />
@@ -25,6 +28,7 @@ function ThemeToggle() {
 }
 
 function AppShell() {
+  const { t } = useTranslation();
   const [view, setView] = useState<View>({ mode: "list" });
   const isEditing = view.mode === "edit";
 
@@ -40,12 +44,15 @@ function AppShell() {
               onClick={() => setView({ mode: "list" })}
             >
               <ArrowLeft className="size-3.5" />
-              Voltar
+              {t("common.back")}
             </Button>
           ) : (
             <span className="text-sm font-semibold">CodeLaunch</span>
           )}
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <LanguageSelect />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
