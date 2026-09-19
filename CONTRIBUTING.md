@@ -1,4 +1,4 @@
-# Contribuindo com o CodeLaunch
+# Contributing to CodeLaunch
 
 ## Setup
 
@@ -7,7 +7,7 @@ npm install
 npm run tauri dev
 ```
 
-Antes de abrir um PR:
+Before opening a pull request, ensure all checks pass:
 
 ```bash
 cargo test --workspace
@@ -16,17 +16,15 @@ npx tsc --noEmit
 npm run build
 ```
 
-## Estrutura do projeto
+## Project Structure
 
-- `crates/codelaunch-core` — toda a lógica de negócio (model, storage, adapters de IDE), sem
-  depender do runtime do Tauri. Testável com `cargo test` puro, sem precisar abrir o app.
-- `src-tauri` — o binário Tauri. `src-tauri/src/commands.rs` só deve conter wrappers finos que
-  chamam `codelaunch-core`; lógica de negócio nova entra no core, não aqui.
-- `src` — frontend React + TypeScript + shadcn/ui.
+- `crates/codelaunch-core` — all core business logic (models, storage, IDE adapters), completely decoupled from the Tauri runtime. Fully testable using pure `cargo test` without running the GUI.
+- `src-tauri` — the Tauri application wrapper. `src-tauri/src/commands.rs` should only contain thin wrappers calling `codelaunch-core`; new business logic belongs in the core crate.
+- `src` — frontend built with React, TypeScript, and shadcn/ui.
 
-## Como adicionar uma nova IDE
+## How to Add a New IDE
 
-O ponto de extensão é a trait `IdeAdapter` (`crates/codelaunch-core/src/ide/mod.rs`):
+The extension point is the `IdeAdapter` trait (`crates/codelaunch-core/src/ide/mod.rs`):
 
 ```rust
 pub trait IdeAdapter: Send + Sync {
@@ -36,28 +34,19 @@ pub trait IdeAdapter: Send + Sync {
 }
 ```
 
-- `render` recebe um `Project` e escreve o(s) arquivo(s) de configuração da IDE em `output_dir`,
-  retornando o caminho do arquivo principal. É I/O puro — sem side effect no sistema (não abre
-  processo nenhum), o que o torna fácil de testar com um teste golden-file.
-- `launch_command` só monta um `std::process::Command` (não o executa) — quem chama decide quando
-  dar `.spawn()`.
+- `render` takes a `Project` and writes the IDE's configuration file(s) into `output_dir`, returning the path to the primary entry file. It is pure I/O — with no system side effects (spawns no processes), making it straightforward to test with golden-file fixtures.
+- `launch_command` only constructs a `std::process::Command` (without executing it) — the caller decides when to call `.spawn()`.
 
-Passo a passo:
+Step-by-step:
 
-1. Adicione a variante na enum `IdeKind` (`crates/codelaunch-core/src/model/project.rs`).
-2. Crie `crates/codelaunch-core/src/ide/<sua_ide>/mod.rs` implementando `IdeAdapter`. Se a IDE for
-   um fork do VS Code (ex: Cursor), o caminho mais rápido é reaproveitar
-   `crate::ide::vscode::build_workspace_document` e só trocar o binário do CLI em
-   `launch_command` — veja `VsCodeAdapter` como referência.
-3. Registre o adapter em `IdeRegistry::new()` (`crates/codelaunch-core/src/ide/mod.rs`).
-4. Adicione testes: pelo menos um golden-file comparando a saída de `render` contra um arquivo de
-   config esperado (veja `crates/codelaunch-core/tests/vscode_adapter_tests.rs` como modelo).
-5. No frontend, libere a nova opção em `IdeSelect`/`ProjectEditorPage.tsx` (hoje só "VS Code" é
-   selecionável, o restante aparece desabilitado como "em breve").
+1. Add the new variant to the `IdeKind` enum (`crates/codelaunch-core/src/model/project.rs`).
+2. Create `crates/codelaunch-core/src/ide/<your_ide>/mod.rs` implementing `IdeAdapter`. If the IDE is a VS Code fork (e.g. Cursor), the quickest path is to reuse `crate::ide::vscode::build_workspace_document` and only change the CLI binary in `launch_command` — see `VsCodeAdapter` as a reference.
+3. Register the adapter in `IdeRegistry::new()` (`crates/codelaunch-core/src/ide/mod.rs`).
+4. Add tests: at least one golden-file comparing `render` output against an expected config file (see `crates/codelaunch-core/tests/vscode_adapter_tests.rs` as a model).
+5. In the frontend, enable the new option in `IdeSelect`/`ProjectEditorPage.tsx` (currently only "VS Code" is selectable; other options are shown disabled as "coming soon").
 
-Nenhum outro arquivo deveria precisar mudar — `commands.rs`, `launcher.rs` e a UI de
-lista/salvar/abrir já funcionam via a trait, sem conhecer detalhes de IDE nenhuma.
+No other files should need modifications — `commands.rs`, `launcher.rs`, and the UI (list, save, launch) work uniformly through the trait without needing IDE-specific knowledge.
 
-## Convenções de commit
+## Commit Conventions
 
-Mensagens curtas, focadas no "porquê" da mudança, não no "o quê" (o diff já mostra o quê).
+Keep commit messages concise and focused on the "why" behind the change, rather than the "what" (the git diff already shows the what).

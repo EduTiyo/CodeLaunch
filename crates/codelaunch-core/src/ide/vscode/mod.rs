@@ -47,10 +47,102 @@ impl IdeAdapter for VsCodeAdapter {
     }
 
     fn launch_command(&self, workspace: &RenderedWorkspace) -> Command {
-        let mut cmd = Command::new(&self.cli_binary);
+        let binary = resolve_cli_path(&self.cli_binary);
+        let mut cmd = Command::new(binary);
         cmd.arg("--new-window").arg(&workspace.entry_path);
         cmd
     }
+}
+
+/// Resolves the CLI binary path by searching `PATH` and checking well-known IDE installation paths.
+/// This prevents failures in packaged GUI apps (e.g. on macOS) where the launcher environment
+/// has a minimal `PATH` that does not include `/opt/homebrew/bin` or standard application bundles.
+pub fn resolve_cli_path(binary: &str) -> PathBuf {
+    let path = PathBuf::from(binary);
+    if binary.contains(std::path::MAIN_SEPARATOR) || binary.contains('/') {
+        return path;
+    }
+
+    // 1. Search in PATH
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let candidate = dir.join(binary);
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+
+    // 2. OS-specific known locations when resolving default 'code'
+    if binary == "code" {
+        #[cfg(target_os = "macos")]
+        {
+            let candidates = [
+                "/opt/homebrew/bin/code",
+                "/usr/local/bin/code",
+                "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+                "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code",
+            ];
+            for candidate in candidates {
+                let p = PathBuf::from(candidate);
+                if p.is_file() {
+                    return p;
+                }
+            }
+            if let Some(dirs) = directories::BaseDirs::new() {
+                let home = dirs.home_dir();
+                let user_candidates = [
+                    home.join(".local/bin/code"),
+                    home.join("bin/code"),
+                    home.join("Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"),
+                ];
+                for candidate in user_candidates {
+                    if candidate.is_file() {
+                        return candidate;
+                    }
+                }
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(dirs) = directories::BaseDirs::new() {
+                let candidate = dirs
+                    .data_local_dir()
+                    .join("Programs/Microsoft VS Code/bin/code.cmd");
+                if candidate.is_file() {
+                    return candidate;
+                }
+            }
+            let candidates = [
+                "C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd",
+                "C:\\Program Files (x86)\\Microsoft VS Code\\bin\\code.cmd",
+            ];
+            for candidate in candidates {
+                let p = PathBuf::from(candidate);
+                if p.is_file() {
+                    return candidate;
+                }
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let candidates = [
+                "/usr/bin/code",
+                "/snap/bin/code",
+                "/usr/local/bin/code",
+            ];
+            for candidate in candidates {
+                let p = PathBuf::from(candidate);
+                if p.is_file() {
+                    return p;
+                }
+            }
+        }
+    }
+
+    path
 }
 
 /// Pure transformation from a [`Project`] to the serializable workspace document.
@@ -108,5 +200,30 @@ fn slugify(name: &str) -> String {
         "project".into()
     } else {
         slug
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_cli_path_preserves_explicit_paths() {
+        let explicit = "/custom/bin/code";
+        assert_eq!(resolve_cli_path(explicit), PathBuf::from(explicit));
+    }
+
+    #[test]
+    fn resolve_cli_path_finds_code_on_system() {
+        let resolved = resolve_cli_path("code");
+        // On macOS or Unix where VS Code or Homebrew is installed, it should resolve to an existing file
+        #[cfg(target_os = "macos")]
+        {
+            if Path::new("/Applications/Visual Studio Code.app").exists()
+                || Path::new("/opt/homebrew/bin/code").exists()
+            {
+                assert!(resolved.is_file(), "expected resolved path to exist: {:?}", resolved);
+            }
+        }
     }
 }

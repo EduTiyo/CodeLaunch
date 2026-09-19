@@ -1,101 +1,76 @@
 # CodeLaunch
 
-Abra os workspaces certos, nas janelas certas, com os terminais certos já rodando — sem editar
-`.code-workspace` à mão.
+Launch the right workspaces in the right windows with the right terminals already running — without hand-editing `.code-workspace` files.
 
-CodeLaunch é um app desktop (Tauri) que permite configurar visualmente, por projeto:
+CodeLaunch is a desktop app (built with Tauri) that allows you to visually configure, per project:
 
-- quais pastas fazem parte do workspace;
-- se terminais integrados devem abrir automaticamente;
-- como esses terminais são agrupados em splits (ex: 3 terminais lado a lado, sendo 2 de backend e
-  1 de frontend);
-- qual comando cada terminal roda ao subir (ex: `docker compose up -d; npm run dev`).
+- which folders belong to the workspace;
+- whether integrated terminals should launch automatically;
+- how those terminals are grouped into splits (e.g., 3 side-by-side terminals: 2 backend, 1 frontend);
+- what command each terminal runs on startup (e.g., `docker compose up -d; npm run dev`).
 
-Hoje ele gera e abre workspaces do **VS Code**, mas foi desenhado para crescer para outras IDEs
-(veja [Arquitetura](#arquitetura) e [CONTRIBUTING.md](./CONTRIBUTING.md)).
+Currently, it generates and launches **VS Code** workspaces, but it was designed from the ground up to support other IDEs (see [Architecture](#architecture) and [CONTRIBUTING.md](./CONTRIBUTING.md)).
 
-## Por quê
+## Why
 
-É comum acumular vários repositórios (ex: `back` + `front` de cada produto) e, todo dia, repetir a
-mesma sequência manual: abrir cada janela do VS Code, abrir o terminal integrado, dividir em
-splits, entrar em cada pasta, rodar `docker compose up`, rodar `npm run dev`... O VS Code já sabe
-fazer boa parte disso sozinho via `tasks.json` (`presentation.group` para splits,
-`runOptions.runOn: "folderOpen"` para autostart) — só que escrever esse JSON à mão é chato e
-propenso a erro. O CodeLaunch é uma interface visual para gerar esse JSON corretamente.
+It is common to accumulate multiple repositories (e.g., `backend` + `frontend` for each product) and repeat the same manual routine every day: open each VS Code window, open the integrated terminal, split it into panes, navigate into each directory, run `docker compose up`, run `npm run dev`... VS Code can already handle much of this on its own via `tasks.json` (`presentation.group` for splits, `runOptions.runOn: "folderOpen"` for autostart) — but writing this JSON by hand is tedious and error-prone. CodeLaunch provides an intuitive visual interface to generate this configuration properly.
 
-## Instalação / desenvolvimento
+## Installation / Development
 
-Pré-requisitos: [Node.js](https://nodejs.org/) 18+, [Rust](https://rustup.rs/) (via `rustup`), e
-as [dependências do sistema do Tauri](https://tauri.app/start/prerequisites/) para o seu SO (no
-macOS, as Command Line Tools do Xcode bastam).
+Prerequisites: [Node.js](https://nodejs.org/) 18+, [Rust](https://rustup.rs/) (via `rustup`), and [Tauri system prerequisites](https://tauri.app/start/prerequisites/) for your OS (on macOS, Xcode Command Line Tools are sufficient).
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-Isso abre o app em modo desenvolvimento com hot-reload do frontend e recompilação automática do
-backend Rust quando os arquivos mudam.
+This launches the app in development mode with frontend hot-reloading and automatic Rust recompilation when backend files change.
 
-Para gerar um binário instalável:
+To build an installable binary:
 
 ```bash
 npm run tauri build
 ```
 
-## Como usar
+## How to Use
 
-1. **Importe um workspace existente** — se você já tem um `.code-workspace` do VS Code configurado
-   à mão, clique em "Importar .code-workspace..." na lista de projetos. O CodeLaunch lê as pastas,
-   os grupos de terminal e os comandos já configurados e recria o projeto.
-2. **Ou crie um novo** — "Novo projeto", dê um nome, adicione as pastas (o seletor de arquivos
-   aceita selecionar várias pastas de uma vez).
-3. **Configure os terminais** (opcional) — ligue "Terminais integrados", adicione um ou mais
-   grupos, e dentro de cada grupo adicione os terminais que devem abrir lado a lado. Cada terminal
-   tem: a pasta em que abre, um comando opcional, e se deve "manter vivo após o comando" (útil para
-   comandos que ficam rodando em primeiro plano, tipo `npm run dev` — se você der `Ctrl+C`, o
-   terminal continua aberto num shell interativo em vez de fechar).
-4. **Salve e abra** — "Salvar e abrir" gera o `.code-workspace` (numa pasta própria do CodeLaunch,
-   não junto dos seus repositórios) e chama `code --new-window` nele.
-5. **Abra vários projetos de uma vez** — na lista de projetos, marque as caixinhas dos projetos
-   desejados e clique em "Abrir selecionados".
+1. **Import an existing workspace** — if you already have a hand-configured `.code-workspace` file from VS Code, click "Import .code-workspace..." on the project list. CodeLaunch reads the folders, terminal groups, and configured commands, recreating the project.
+2. **Or create a new one** — click "New project", provide a name, and add folders (the file picker allows selecting multiple folders at once).
+3. **Configure terminals** (optional) — toggle "Integrated terminals", add one or more groups, and add the terminals that should open side-by-side within each group. Each terminal has: the directory it opens in, an optional startup command, and whether to "keep alive after command" (useful for long-running foreground commands like `npm run dev` — if you hit `Ctrl+C`, the terminal stays open in an interactive shell instead of closing).
+4. **Save and open** — "Save and open" generates the `.code-workspace` file (in CodeLaunch's dedicated config directory, not cluttering your repos) and executes `code --new-window` on it.
+5. **Launch multiple projects at once** — in the project list, check the boxes for your desired projects and click "Launch selected".
 
-## Arquitetura
+## Architecture
 
 ```
-crates/codelaunch-core/     # lógica de negócio pura, sem depender do runtime do Tauri
-├── model/                  # Project, Folder, TerminalGroup, Terminal, validação
-├── storage/                # persistência em JSON (um arquivo por projeto)
-├── ide/                    # trait IdeAdapter + implementação para VS Code
-│   └── vscode/              # gera e importa .code-workspace (folders, settings, tasks)
-└── launcher.rs             # resolve o adapter certo e dispara o processo da IDE
+crates/codelaunch-core/     # pure business logic, independent of the Tauri runtime
+├── model/                  # Project, Folder, TerminalGroup, Terminal, validation
+├── storage/                # JSON persistence (one file per project)
+├── ide/                    # IdeAdapter trait + VS Code implementation
+│   └── vscode/             # generates and imports .code-workspace (folders, settings, tasks)
+└── launcher.rs             # resolves the target adapter and spawns the IDE process
 
-src-tauri/                  # binário Tauri fino — só expõe commands, sem lógica própria
+src-tauri/                  # thin Tauri binary — exposes commands, no business logic
 └── src/commands.rs
 
-src/                        # frontend React + TypeScript + shadcn/ui
-├── routes/                 # tela de lista e tela de edição de projeto
-├── components/             # TerminalGrid/TerminalGroupPanel/TerminalPane (visual dos splits)
-└── lib/                    # tipos + wrappers tipados de invoke()
+src/                        # React + TypeScript + shadcn/ui frontend
+├── routes/                 # project list and edit screens
+├── components/             # TerminalGrid/TerminalGroupPanel/TerminalPane (split view UI)
+└── lib/                    # types + typed wrappers for invoke()
 ```
 
-O ponto central da extensibilidade é a trait `IdeAdapter`
-(`crates/codelaunch-core/src/ide/mod.rs`): qualquer IDE nova (Cursor, JetBrains, ...) só precisa
-implementar `render` (gera a config) e `launch_command` (monta o comando pra abrir a IDE) — o resto
-do app (armazenamento, UI, comandos Tauri) já funciona sem mudanças. Veja
-[CONTRIBUTING.md](./CONTRIBUTING.md) para o passo a passo de adicionar uma IDE nova.
+The core extensibility point is the `IdeAdapter` trait (`crates/codelaunch-core/src/ide/mod.rs`): adding support for any new IDE (Cursor, JetBrains, etc.) only requires implementing `render` (generates the configuration) and `launch_command` (constructs the command to open the IDE) — the rest of the application (storage, UI, Tauri commands) works out of the box. Check [CONTRIBUTING.md](./CONTRIBUTING.md) for a step-by-step guide on adding a new IDE.
 
-## Testes
+## Testing
 
 ```bash
-cargo test --workspace       # testes do backend, incluindo golden-file/round-trip
+cargo test --workspace       # backend tests, including golden-file / round-trip suites
 cargo clippy --workspace --all-targets
-npx tsc --noEmit              # type-check do frontend
+npx tsc --noEmit             # frontend type-checking
 ```
 
-Os testes de `ide/vscode` incluem fixtures reais (`crates/codelaunch-core/tests/fixtures/`) que
-comprovam que o gerador reproduz fielmente arquivos `.code-workspace` escritos à mão.
+The `ide/vscode` tests include real-world fixtures (`crates/codelaunch-core/tests/fixtures/`) that verify the generator faithfully reproduces handwritten `.code-workspace` files.
 
-## Licença
+## License
 
 [MIT](./LICENSE).

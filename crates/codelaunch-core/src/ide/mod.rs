@@ -16,6 +16,13 @@ pub enum IdeError {
     UnsupportedIde(IdeKind),
     #[error("failed to parse workspace file: {0}")]
     ParseError(String),
+    #[error("executable '{binary}' not found for {ide}. Please ensure it is installed and available in PATH: {source}")]
+    ExecutableNotFound {
+        ide: String,
+        binary: String,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, IdeError>;
