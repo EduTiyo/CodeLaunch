@@ -38,3 +38,12 @@ export function detectFolderCommands(path: string): Promise<DetectedCommand[]> {
   return invoke("detect_folder_commands", { path });
 }
 
+export function setProjectsGroup(ids: string[], group: string | null): Promise<void> {
+  return invoke("set_projects_group", { ids, group });
+}
+
+export function renameProjectGroup(oldName: string, newName: string): Promise<void> {
+  return invoke("rename_project_group", { oldName, newName });
+}
+
+

@@ -365,6 +365,17 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
               onChange={(e) => update({ name: e.target.value })}
             />
           </div>
+          <div className="w-44 space-y-1.5">
+            <Label htmlFor="project-group">{t("editor.group")}</Label>
+            <Input
+              id="project-group"
+              value={project.group ?? ""}
+              onChange={(e) =>
+                update({ group: e.target.value.trim() ? e.target.value : null })
+              }
+              placeholder={t("editor.groupPlaceholder")}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label>{t("editor.ide")}</Label>
             <Select

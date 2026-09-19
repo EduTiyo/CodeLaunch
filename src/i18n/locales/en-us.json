@@ -41,10 +41,30 @@
       "launch": "Open",
       "edit": "Edit",
       "duplicate": "Duplicate",
-      "delete": "Delete"
+      "delete": "Delete",
+      "assignGroup": "Assign to group...",
+      "renameGroup": "Rename group...",
+      "ungroupAll": "Ungroup all"
     },
     "selectedCount": "{{count}} selected",
     "launchSelected": "Open selected",
+    "groupSelected": "Group",
+    "launchGroup": "Open group ({{count}})",
+    "ungroupedProjects": "Ungrouped Projects",
+    "groupDialog": {
+      "title": "Group Projects",
+      "description": "Assign {{count}} selected project(s) to a group to easily organize and launch them together.",
+      "nameLabel": "Group name",
+      "placeholder": "e.g. Work, Personal, Tools",
+      "existingGroups": "Existing groups",
+      "ungroup": "Remove from group",
+      "apply": "Save group"
+    },
+    "renameGroupDialog": {
+      "title": "Rename Group",
+      "description": "Enter a new name for the group \"{{name}}\".",
+      "nameLabel": "New group name"
+    },
     "deleteDialog": {
       "title": "Delete project",
       "description": "Are you sure you want to delete <strong title=\"\">\"{{name}}\"</strong>? This action cannot be undone.",
@@ -58,12 +78,17 @@
       "workspacesOpened": "{{count}} workspace(s) opened.",
       "completedWithErrors": "Completed with errors: {{errors}}",
       "projectDeleted": "Project \"{{name}}\" deleted.",
-      "duplicated": "Project \"{{name}}\" duplicated."
+      "duplicated": "Project \"{{name}}\" duplicated.",
+      "groupUpdated": "Group updated for {{count}} project(s).",
+      "groupRenamed": "Group renamed to \"{{name}}\".",
+      "groupRemoved": "Group removed from {{count}} project(s)."
     }
   },
   "editor": {
     "defaultProjectName": "New Project",
     "name": "Name",
+    "group": "Group",
+    "groupPlaceholder": "e.g. Work, Personal",
     "ide": "IDE",
     "comingSoon": "Other IDEs (JetBrains family) coming soon.",
     "folders": "Folders",
