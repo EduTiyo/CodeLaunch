@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use codelaunch_core::ide::terminal::generate_preview;
 use codelaunch_core::ide::vscode::{build_workspace_document, parse_vscode_workspace};
 use codelaunch_core::ide::IdeRegistry;
 use codelaunch_core::launcher;
 use codelaunch_core::model::validation::validate;
-use codelaunch_core::model::{Project, ProjectSummary};
+use codelaunch_core::model::{IdeKind, Project, ProjectSummary};
 use codelaunch_core::storage::{
     default_projects_dir, default_workspaces_dir, FsProjectRepository, ProjectRepository,
 };
@@ -80,8 +81,13 @@ pub fn delete_project(state: tauri::State<SharedState>, id: Uuid) -> Result<(), 
 
 #[tauri::command]
 pub fn preview_workspace(project: Project) -> Result<String, String> {
-    let doc = build_workspace_document(&project).map_err(|e| e.to_string())?;
-    serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())
+    match project.ide {
+        IdeKind::VsCode | IdeKind::Cursor | IdeKind::Vscodium | IdeKind::Windsurf => {
+            let doc = build_workspace_document(&project).map_err(|e| e.to_string())?;
+            serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())
+        }
+        IdeKind::Terminal => generate_preview(&project).map_err(|e| e.to_string()),
+    }
 }
 
 #[tauri::command]

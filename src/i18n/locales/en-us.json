@@ -29,7 +29,7 @@
     "vsCodeWorkspace": "VS Code Workspace",
     "table": {
       "name": "Name",
-      "ide": "IDE",
+      "openWith": "Open with",
       "folders": "Folders",
       "terminals": "Terminals",
       "actions": "Actions",
@@ -64,13 +64,14 @@
   "editor": {
     "defaultProjectName": "New Project",
     "name": "Name",
-    "ide": "IDE",
+    "openWith": "Open with",
     "comingSoon": "Other IDEs (JetBrains family) coming soon.",
     "folders": "Folders",
     "addFolder": "Folder",
     "noFolders": "No folders yet.",
     "integratedTerminals": "Integrated terminals",
     "viewJson": "View generated JSON",
+    "viewScript": "View generated script",
     "save": "Save",
     "saveAndOpen": "Save and open",
     "unsavedChangesDialog": {

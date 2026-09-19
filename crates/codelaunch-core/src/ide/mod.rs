@@ -1,3 +1,4 @@
+pub mod terminal;
 pub mod vscode;
 
 use std::collections::HashMap;
@@ -63,6 +64,8 @@ impl IdeRegistry {
             let adapter = vscode::VsCodeAdapter::new(kind, kind.default_binary());
             adapters.insert(kind, Box::new(adapter));
         }
+        let terminal = terminal::TerminalAdapter;
+        adapters.insert(terminal.kind(), Box::new(terminal));
         Self { adapters }
     }
 
@@ -92,6 +95,7 @@ mod tests {
             IdeKind::Cursor,
             IdeKind::Vscodium,
             IdeKind::Windsurf,
+            IdeKind::Terminal,
         ] {
             let adapter = registry.get(kind);
             assert!(adapter.is_ok(), "missing adapter for {kind:?}");

@@ -280,7 +280,7 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t("editor.ide")}</Label>
+            <Label>{t("editor.openWith")}</Label>
             <Select
               value={project.ide}
               onValueChange={(ide: IdeKind) => update({ ide })}
@@ -363,7 +363,7 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
       <section>
         <Button variant="ghost" size="sm" onClick={handlePreview}>
           <ChevronDown className="size-3.5" />
-          {t("editor.viewJson")}
+          {project.ide === "terminal" ? t("editor.viewScript") : t("editor.viewJson")}
         </Button>
         {preview && (
           <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">
