@@ -1,7 +1,26 @@
 // Mirrors the Rust structs in crates/codelaunch-core/src/model/project.rs.
 // TODO: generate this automatically via ts-rs once the model stabilizes (see plan Fase 1).
 
-export type IdeKind = "vs-code";
+export type IdeKind = "vs-code" | "cursor" | "vscodium" | "windsurf";
+
+export interface IdeOption {
+  id: IdeKind;
+  name: string;
+}
+
+export const IDE_OPTIONS: IdeOption[] = [
+  { id: "vs-code", name: "VS Code" },
+  { id: "cursor", name: "Cursor" },
+  { id: "vscodium", name: "VSCodium" },
+  { id: "windsurf", name: "Windsurf" },
+];
+
+export const IDE_LABELS: Record<IdeKind, string> = {
+  "vs-code": "VS Code",
+  "cursor": "Cursor",
+  "vscodium": "VSCodium",
+  "windsurf": "Windsurf",
+};
 
 export interface Folder {
   id: string;

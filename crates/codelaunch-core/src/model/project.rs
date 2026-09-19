@@ -133,8 +133,58 @@ impl Terminal {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum IdeKind {
+    #[default]
     VsCode,
+    Cursor,
+    Vscodium,
+    Windsurf,
+}
+
+impl IdeKind {
+    pub fn default_binary(&self) -> &'static str {
+        match self {
+            Self::VsCode => "code",
+            Self::Cursor => "cursor",
+            Self::Vscodium => "codium",
+            Self::Windsurf => "windsurf",
+        }
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::VsCode => "VS Code",
+            Self::Cursor => "Cursor",
+            Self::Vscodium => "VSCodium",
+            Self::Windsurf => "Windsurf",
+        }
+    }
+}
+
+impl std::fmt::Display for IdeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display_name())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ide_kind_serde_roundtrip() {
+        for (kind, expected) in [
+            (IdeKind::VsCode, "\"vs-code\""),
+            (IdeKind::Cursor, "\"cursor\""),
+            (IdeKind::Vscodium, "\"vscodium\""),
+            (IdeKind::Windsurf, "\"windsurf\""),
+        ] {
+            let serialized = serde_json::to_string(&kind).unwrap();
+            assert_eq!(serialized, expected);
+            let deserialized: IdeKind = serde_json::from_str(&serialized).unwrap();
+            assert_eq!(deserialized, kind);
+        }
+    }
 }
