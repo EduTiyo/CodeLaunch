@@ -123,7 +123,7 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
             for candidate in candidates {
                 let p = PathBuf::from(candidate);
                 if p.is_file() {
-                    return candidate;
+                    return p;
                 }
             }
         }
