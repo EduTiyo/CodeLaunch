@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import {
@@ -62,6 +62,10 @@ import { RenameGroupDialog } from "@/components/RenameGroupDialog";
 interface Props {
   onEdit: (id: string | null) => void;
 }
+
+const isMac =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPod|iPad/i.test(navigator.userAgent || navigator.platform);
 
 export function ProjectListPage({ onEdit }: Props) {
   const { t } = useTranslation();
@@ -351,6 +355,89 @@ export function ProjectListPage({ onEdit }: Props) {
     return Boolean(p?.group);
   });
 
+  const launchableShortcuts = useMemo(() => {
+    const list: {
+      key: string;
+      digit: number;
+      label: string;
+      action: () => void;
+    }[] = [];
+
+    let currentDigit = 1;
+
+    function addShortcut(key: string, action: () => void) {
+      if (currentDigit <= 9) {
+        list.push({
+          key,
+          digit: currentDigit,
+          label: isMac ? `⌘${currentDigit}` : `Ctrl+${currentDigit}`,
+          action,
+        });
+        currentDigit++;
+      }
+    }
+
+    if (groups.length === 0) {
+      filteredProjects.forEach((p) => {
+        addShortcut(`project:${p.id}`, () => handleLaunch(p.id));
+      });
+    } else {
+      groups.forEach(([groupName, groupProjects]) => {
+        addShortcut(`group:${groupName}`, () => handleLaunchGroup(groupProjects));
+
+        if (!collapsedGroups.has(groupName)) {
+          groupProjects.forEach((p) => {
+            addShortcut(`project:${p.id}`, () => handleLaunch(p.id));
+          });
+        }
+      });
+
+      if (ungrouped.length > 0 && !collapsedGroups.has("__ungrouped__")) {
+        ungrouped.forEach((p) => {
+          addShortcut(`project:${p.id}`, () => handleLaunch(p.id));
+        });
+      }
+    }
+
+    const map = new Map<string, { digit: number; label: string; action: () => void }>();
+    list.forEach((item) => {
+      map.set(item.key, item);
+    });
+
+    return { list, map };
+  }, [groups, filteredProjects, collapsedGroups, ungrouped, busy]);
+
+  const shortcutsRef = useRef(launchableShortcuts.list);
+  shortcutsRef.current = launchableShortcuts.list;
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (busy) return;
+      if (projectToDelete || isGroupDialogOpen || isRenameDialogOpen) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        const digit = parseInt(e.key, 10);
+        if (digit >= 1 && digit <= 9) {
+          const item = shortcutsRef.current.find((i) => i.digit === digit);
+          if (item) {
+            e.preventDefault();
+            item.action();
+          }
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [busy, projectToDelete, isGroupDialogOpen, isRenameDialogOpen]);
+
   function renderProjectTable(items: ProjectSummary[]) {
     return (
       <Table>
@@ -404,6 +491,11 @@ export function ProjectListPage({ onEdit }: Props) {
                   >
                     <Play className="size-3.5" />
                     {t("projects.actions.launch")}
+                    {launchableShortcuts.map.get(`project:${p.id}`) && (
+                      <kbd className="ml-1 font-mono text-[10px] opacity-70">
+                        ({launchableShortcuts.map.get(`project:${p.id}`)!.label})
+                      </kbd>
+                    )}
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -560,6 +652,11 @@ export function ProjectListPage({ onEdit }: Props) {
                       {t("projects.launchGroup", {
                         count: groupProjects.length,
                       })}
+                      {launchableShortcuts.map.get(`group:${groupName}`) && (
+                        <kbd className="ml-0.5 font-mono text-[10px] opacity-70">
+                          ({launchableShortcuts.map.get(`group:${groupName}`)!.label})
+                        </kbd>
+                      )}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
