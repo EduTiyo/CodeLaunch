@@ -180,6 +180,7 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
         }
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
     if let Some(dirs) = directories::BaseDirs::new() {
         #[cfg(target_os = "macos")]
         {
@@ -229,6 +230,20 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
                 "windsurf" => vec![local_data.join("Programs/windsurf/bin/windsurf.cmd")],
                 _ => vec![],
             };
+            for candidate in user_candidates {
+                if candidate.is_file() {
+                    return candidate;
+                }
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let home = dirs.home_dir();
+            let user_candidates = [
+                home.join(format!(".local/bin/{binary}")),
+                home.join(format!("bin/{binary}")),
+            ];
             for candidate in user_candidates {
                 if candidate.is_file() {
                     return candidate;
