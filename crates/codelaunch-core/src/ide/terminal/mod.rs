@@ -53,7 +53,11 @@ impl IdeAdapter for TerminalAdapter {
     }
 }
 
-pub fn render_for_os(project: &Project, output_dir: &Path, os: TargetOs) -> Result<RenderedWorkspace> {
+pub fn render_for_os(
+    project: &Project,
+    output_dir: &Path,
+    os: TargetOs,
+) -> Result<RenderedWorkspace> {
     let slug = slugify(&project.name);
     let project_dir = output_dir.join(format!("{slug}-terminal"));
     fs::create_dir_all(&project_dir)?;
@@ -246,25 +250,43 @@ pub fn generate_preview_for_os(project: &Project, os: TargetOs) -> Result<String
 pub fn generate_preview(project: &Project) -> Result<String> {
     let mut preview = String::new();
 
-    preview.push_str("# ==============================================================================\n");
+    preview.push_str(
+        "# ==============================================================================\n",
+    );
     preview.push_str("# [macOS] (launch.command) — 1 janela por grupo com abas (Terminal.app)\n");
-    preview.push_str("# ==============================================================================\n\n");
+    preview.push_str(
+        "# ==============================================================================\n\n",
+    );
     preview.push_str(&generate_preview_for_os(project, TargetOs::MacOs)?);
 
-    preview.push_str("\n\n# ==============================================================================\n");
-    preview.push_str("# [Linux] (launch.sh) — 1 janela por grupo com abas (gnome-terminal, konsole, xfce4)\n");
-    preview.push_str("# ==============================================================================\n\n");
+    preview.push_str(
+        "\n\n# ==============================================================================\n",
+    );
+    preview.push_str(
+        "# [Linux] (launch.sh) — 1 janela por grupo com abas (gnome-terminal, konsole, xfce4)\n",
+    );
+    preview.push_str(
+        "# ==============================================================================\n\n",
+    );
     preview.push_str(&generate_preview_for_os(project, TargetOs::Linux)?);
 
-    preview.push_str("\n\n# ==============================================================================\n");
-    preview.push_str("# [Windows] (launch.bat) — 1 janela por grupo com abas (Windows Terminal wt.exe)\n");
-    preview.push_str("# ==============================================================================\n\n");
+    preview.push_str(
+        "\n\n# ==============================================================================\n",
+    );
+    preview.push_str(
+        "# [Windows] (launch.bat) — 1 janela por grupo com abas (Windows Terminal wt.exe)\n",
+    );
+    preview.push_str(
+        "# ==============================================================================\n\n",
+    );
     preview.push_str(&generate_preview_for_os(project, TargetOs::Windows)?);
 
     Ok(preview)
 }
 
-fn collect_grouped_terminals(project: &Project) -> Vec<(&TerminalGroup, Vec<(&Terminal, &Folder)>)> {
+fn collect_grouped_terminals(
+    project: &Project,
+) -> Vec<(&TerminalGroup, Vec<(&Terminal, &Folder)>)> {
     if !project.terminals_enabled {
         return Vec::new();
     }
@@ -326,7 +348,10 @@ fn generate_macos_terminal_script(term: &Terminal, folder: &Folder) -> String {
 
     match (&term.command, term.keep_alive) {
         (Some(cmd), true) => {
-            script.push_str(&format!("trap : INT; {}; exec \"${{SHELL:-zsh}}\" -l\n", cmd));
+            script.push_str(&format!(
+                "trap : INT; {}; exec \"${{SHELL:-zsh}}\" -l\n",
+                cmd
+            ));
         }
         (Some(cmd), false) => {
             script.push_str(&format!("{}\n", cmd));
@@ -345,7 +370,10 @@ fn generate_macos_master_script(
 ) -> String {
     let mut script = String::new();
     script.push_str("#!/usr/bin/env bash\n");
-    script.push_str(&format!("# CodeLaunch Terminal Launcher for {}\n", project.name));
+    script.push_str(&format!(
+        "# CodeLaunch Terminal Launcher for {}\n",
+        project.name
+    ));
     script.push_str("# Para permitir a abertura automatica de abas via Cmd+T no macOS:\n");
     script.push_str("# open \"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility\"\n\n");
 
@@ -353,11 +381,16 @@ fn generate_macos_master_script(
         if project.folders.is_empty() {
             script.push_str("osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n    do script \"cd '$PWD' && exec $SHELL -l\"\nend tell\nAPPLESCRIPT\n");
         } else {
-            script.push_str("osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n");
+            script.push_str(
+                "osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n",
+            );
             for (idx, folder) in project.folders.iter().enumerate() {
                 let path = resolve_folder_path(folder);
                 if idx == 0 {
-                    script.push_str(&format!("    do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n", path));
+                    script.push_str(&format!(
+                        "    do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n",
+                        path
+                    ));
                 } else {
                     script.push_str("    delay 0.5\n    try\n        tell application \"System Events\" to tell process \"Terminal\"\n            keystroke \"t\" using {command down}\n        end tell\n        delay 0.5\n");
                     script.push_str(&format!("        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in selected tab of front window\n    on error\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end try\n", path, path));
@@ -366,7 +399,8 @@ fn generate_macos_master_script(
             script.push_str("end tell\nAPPLESCRIPT\n");
         }
     } else {
-        script.push_str("osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n");
+        script
+            .push_str("osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n");
         for (g_idx, (_group, terms)) in grouped_scripts.iter().enumerate() {
             if g_idx > 0 {
                 script.push_str("    delay 0.5\n");
@@ -375,10 +409,7 @@ fn generate_macos_master_script(
                 let path_str = script_path.display().to_string();
                 if t_idx == 0 {
                     // First terminal in group starts a new window in Terminal.app
-                    script.push_str(&format!(
-                        "    do script \"exec \\\"{}\\\"\"\n",
-                        path_str
-                    ));
+                    script.push_str(&format!("    do script \"exec \\\"{}\\\"\"\n", path_str));
                 } else {
                     // Additional terminals in the same group open as tabs in that window
                     script.push_str("    delay 0.5\n    try\n        tell application \"System Events\" to tell process \"Terminal\"\n            keystroke \"t\" using {command down}\n        end tell\n        delay 0.5\n");
@@ -406,7 +437,10 @@ fn generate_linux_terminal_script(term: &Terminal, folder: &Folder) -> String {
 
     match (&term.command, term.keep_alive) {
         (Some(cmd), true) => {
-            script.push_str(&format!("trap : INT; {}; exec \"${{SHELL:-bash}}\" -l\n", cmd));
+            script.push_str(&format!(
+                "trap : INT; {}; exec \"${{SHELL:-bash}}\" -l\n",
+                cmd
+            ));
         }
         (Some(cmd), false) => {
             script.push_str(&format!("{}\n", cmd));
@@ -425,7 +459,10 @@ fn generate_linux_master_script(
 ) -> String {
     let mut script = String::new();
     script.push_str("#!/usr/bin/env bash\n");
-    script.push_str(&format!("# CodeLaunch Terminal Launcher for {}\n\n", project.name));
+    script.push_str(&format!(
+        "# CodeLaunch Terminal Launcher for {}\n\n",
+        project.name
+    ));
 
     script.push_str(r#"# Detect installed terminal emulator
 TERMINAL_BIN=""
@@ -459,49 +496,87 @@ esac
         }
     } else {
         for (g_idx, (_group, terms)) in grouped_scripts.iter().enumerate() {
-            script.push_str(&format!("\n# === Group {} (Window with Tabs) ===\n", g_idx + 1));
-            script.push_str(r#"case "$TERMINAL_BIN" in
+            script.push_str(&format!(
+                "\n# === Group {} (Window with Tabs) ===\n",
+                g_idx + 1
+            ));
+            script.push_str(
+                r#"case "$TERMINAL_BIN" in
     gnome-terminal|ptyxis|mate-terminal)
-"#);
+"#,
+            );
             let mut cmd = String::from("        \"$TERMINAL_BIN\"");
             for (t_idx, (term, script_path)) in terms.iter().enumerate() {
                 let title = term.label.replace('"', "\\\"");
                 if t_idx == 0 {
-                    cmd.push_str(&format!(" --window --title=\"{}\" -- /bin/bash \"{}\"", title, script_path.display()));
+                    cmd.push_str(&format!(
+                        " --window --title=\"{}\" -- /bin/bash \"{}\"",
+                        title,
+                        script_path.display()
+                    ));
                 } else {
-                    cmd.push_str(&format!(" --tab --title=\"{}\" -- /bin/bash \"{}\"", title, script_path.display()));
+                    cmd.push_str(&format!(
+                        " --tab --title=\"{}\" -- /bin/bash \"{}\"",
+                        title,
+                        script_path.display()
+                    ));
                 }
             }
             cmd.push_str(" &\n        ;;\n");
             script.push_str(&cmd);
 
-            script.push_str(r#"    konsole)
-"#);
-            let mut konsole_cmd = String::from("        TABS_FILE=$(mktemp)\n        cat << 'EOF' > \"$TABS_FILE\"\n");
+            script.push_str(
+                r#"    konsole)
+"#,
+            );
+            let mut konsole_cmd = String::from(
+                "        TABS_FILE=$(mktemp)\n        cat << 'EOF' > \"$TABS_FILE\"\n",
+            );
             for (term, script_path) in terms {
-                konsole_cmd.push_str(&format!("title: {};; command: /bin/bash \"{}\"\n", term.label, script_path.display()));
+                konsole_cmd.push_str(&format!(
+                    "title: {};; command: /bin/bash \"{}\"\n",
+                    term.label,
+                    script_path.display()
+                ));
             }
-            konsole_cmd.push_str("EOF\n        \"$TERMINAL_BIN\" --tabs-from-file \"$TABS_FILE\" &\n        ;;\n");
+            konsole_cmd.push_str(
+                "EOF\n        \"$TERMINAL_BIN\" --tabs-from-file \"$TABS_FILE\" &\n        ;;\n",
+            );
             script.push_str(&konsole_cmd);
 
-            script.push_str(r#"    xfce4-terminal)
-"#);
+            script.push_str(
+                r#"    xfce4-terminal)
+"#,
+            );
             let mut xfce_cmd = String::from("        \"$TERMINAL_BIN\"");
             for (t_idx, (term, script_path)) in terms.iter().enumerate() {
                 let title = term.label.replace('"', "\\\"");
                 if t_idx == 0 {
-                    xfce_cmd.push_str(&format!(" --window --title=\"{}\" -e \"/bin/bash '{}'\"", title, script_path.display()));
+                    xfce_cmd.push_str(&format!(
+                        " --window --title=\"{}\" -e \"/bin/bash '{}'\"",
+                        title,
+                        script_path.display()
+                    ));
                 } else {
-                    xfce_cmd.push_str(&format!(" --tab --title=\"{}\" -e \"/bin/bash '{}'\"", title, script_path.display()));
+                    xfce_cmd.push_str(&format!(
+                        " --tab --title=\"{}\" -e \"/bin/bash '{}'\"",
+                        title,
+                        script_path.display()
+                    ));
                 }
             }
             xfce_cmd.push_str(" &\n        ;;\n");
             script.push_str(&xfce_cmd);
 
-            script.push_str(r#"    *)
-"#);
+            script.push_str(
+                r#"    *)
+"#,
+            );
             for (_term, script_path) in terms {
-                script.push_str(&format!("        /bin/bash \"{}\" &\n", script_path.display()));
+                script.push_str(&format!(
+                    "        /bin/bash \"{}\" &\n",
+                    script_path.display()
+                ));
             }
             script.push_str("        ;;\nesac\n");
         }
@@ -538,7 +613,10 @@ fn generate_windows_master_script(
 ) -> String {
     let mut script = String::new();
     script.push_str("@echo off\n");
-    script.push_str(&format!("rem CodeLaunch Terminal Launcher for {}\n\n", project.name));
+    script.push_str(&format!(
+        "rem CodeLaunch Terminal Launcher for {}\n\n",
+        project.name
+    ));
 
     if grouped_scripts.is_empty() {
         if let Some(folder) = project.folders.first() {
@@ -557,9 +635,15 @@ fn generate_windows_master_script(
                 let mode = if term.keep_alive { "/k" } else { "/c" };
                 let title = term.label.replace('"', "");
                 if idx == 0 {
-                    wt_command.push_str(&format!(" new-tab --title \"{}\" cmd {} call \"{}\"", title, mode, path_str));
+                    wt_command.push_str(&format!(
+                        " new-tab --title \"{}\" cmd {} call \"{}\"",
+                        title, mode, path_str
+                    ));
                 } else {
-                    wt_command.push_str(&format!(" ; new-tab --title \"{}\" cmd {} call \"{}\"", title, mode, path_str));
+                    wt_command.push_str(&format!(
+                        " ; new-tab --title \"{}\" cmd {} call \"{}\"",
+                        title, mode, path_str
+                    ));
                 }
             }
             script.push_str(&wt_command);
@@ -567,13 +651,17 @@ fn generate_windows_master_script(
         }
 
         script.push_str(") else (\n");
-        script.push_str("    rem Command Prompt (fallback when Windows Terminal is not installed)\n");
+        script
+            .push_str("    rem Command Prompt (fallback when Windows Terminal is not installed)\n");
         for (_group, terms) in grouped_scripts {
             for (term, script_path) in terms {
                 let path_str = script_path.display().to_string();
                 let mode = if term.keep_alive { "/k" } else { "/c" };
                 let title = term.label.replace('"', "");
-                script.push_str(&format!("    start \"{}\" cmd {} call \"{}\"\n", title, mode, path_str));
+                script.push_str(&format!(
+                    "    start \"{}\" cmd {} call \"{}\"\n",
+                    title, mode, path_str
+                ));
             }
         }
         script.push_str(")\n");
@@ -676,8 +764,13 @@ mod tests {
 
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
         // Both groups have a second terminal added as a tab via Cmd+T keystroke
-        let tab_adds = master.matches("keystroke \"t\" using {command down}").count();
-        assert_eq!(tab_adds, 2, "Each group's second terminal should be added as a tab");
+        let tab_adds = master
+            .matches("keystroke \"t\" using {command down}")
+            .count();
+        assert_eq!(
+            tab_adds, 2,
+            "Each group's second terminal should be added as a tab"
+        );
     }
 
     #[test]
