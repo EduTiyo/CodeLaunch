@@ -1,7 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { Copy, FolderInput, MoreHorizontal, Play, Plus, Rocket, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Edit2,
+  Folder,
+  FolderInput,
+  FolderX,
+  MoreHorizontal,
+  Play,
+  Plus,
+  Rocket,
+  Search,
+  X,
+} from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 import type { Project, ProjectSummary } from "@/lib/types";
 import { IDE_LABELS, newId } from "@/lib/types";
@@ -12,7 +26,9 @@ import {
   launchProject,
   listProjects,
   loadProject,
+  renameProjectGroup,
   saveProject,
+  setProjectsGroup,
 } from "@/lib/tauriApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +56,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ProjectGroupDialog } from "@/components/ProjectGroupDialog";
+import { RenameGroupDialog } from "@/components/RenameGroupDialog";
 
 interface Props {
   onEdit: (id: string | null) => void;
@@ -52,6 +70,14 @@ export function ProjectListPage({ onEdit }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null);
+
+  // Grouping state
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [groupToRename, setGroupToRename] = useState("");
+  const [targetProjectsForGroup, setTargetProjectsForGroup] = useState<string[]>([]);
+  const [initialGroupNameForDialog, setInitialGroupNameForDialog] = useState<string | undefined>(undefined);
 
   const refresh = () => listProjects().then(setProjects).catch((e) => toast.error(String(e)));
 
@@ -170,16 +196,262 @@ export function ProjectListPage({ onEdit }: Props) {
     }
   }
 
+  function toggleGroupCollapse(groupName: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupName)) {
+        next.delete(groupName);
+      } else {
+        next.add(groupName);
+      }
+      return next;
+    });
+  }
+
+  function handleToggleGroupSelect(groupProjects: ProjectSummary[]) {
+    const allSelected =
+      groupProjects.length > 0 && groupProjects.every((p) => selected.has(p.id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      groupProjects.forEach((p) => {
+        if (allSelected) {
+          next.delete(p.id);
+        } else {
+          next.add(p.id);
+        }
+      });
+      return next;
+    });
+  }
+
+  async function handleLaunchGroup(groupProjects: ProjectSummary[]) {
+    setBusy(true);
+    try {
+      const errors = await launchMany(groupProjects.map((p) => p.id));
+      if (errors.length === 0) {
+        toast.success(
+          t("projects.toasts.workspacesOpened", { count: groupProjects.length })
+        );
+      } else {
+        toast.error(
+          t("projects.toasts.completedWithErrors", { errors: errors.join("; ") })
+        );
+      }
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveGroup(groupName: string | null) {
+    if (targetProjectsForGroup.length === 0) return;
+    setBusy(true);
+    try {
+      await setProjectsGroup(targetProjectsForGroup, groupName);
+      if (groupName) {
+        toast.success(
+          t("projects.toasts.groupUpdated", { count: targetProjectsForGroup.length })
+        );
+      } else {
+        toast.success(
+          t("projects.toasts.groupRemoved", { count: targetProjectsForGroup.length })
+        );
+      }
+      refresh();
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRenameGroup(oldName: string, newName: string) {
+    setBusy(true);
+    try {
+      await renameProjectGroup(oldName, newName);
+      toast.success(t("projects.toasts.groupRenamed", { name: newName }));
+      refresh();
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUngroupAll(groupName: string) {
+    const ids = projects
+      .filter((p) => p.group?.trim() === groupName)
+      .map((p) => p.id);
+    if (ids.length === 0) return;
+    setBusy(true);
+    try {
+      await setProjectsGroup(ids, null);
+      toast.success(t("projects.toasts.groupRemoved", { count: ids.length }));
+      refresh();
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openGroupDialogForSelection() {
+    const ids = [...selected];
+    setTargetProjectsForGroup(ids);
+    const selectedProjects = projects.filter((p) => selected.has(p.id));
+    const firstGroup = selectedProjects[0]?.group ?? undefined;
+    const allSame = selectedProjects.every((p) => p.group === firstGroup);
+    setInitialGroupNameForDialog(allSame ? (firstGroup ?? undefined) : undefined);
+    setIsGroupDialogOpen(true);
+  }
+
+  function openGroupDialogForSingle(p: ProjectSummary) {
+    setTargetProjectsForGroup([p.id]);
+    setInitialGroupNameForDialog(p.group ?? undefined);
+    setIsGroupDialogOpen(true);
+  }
+
   const query = search.toLowerCase().trim();
   const filteredProjects = query
-    ? projects.filter((p) => p.name.toLowerCase().includes(query))
+    ? projects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          (p.group && p.group.toLowerCase().includes(query))
+      )
     : projects;
+
+  const { groups, ungrouped, existingGroups } = useMemo(() => {
+    const map = new Map<string, ProjectSummary[]>();
+    const ungroupedList: ProjectSummary[] = [];
+
+    filteredProjects.forEach((p) => {
+      const g = p.group?.trim();
+      if (g) {
+        if (!map.has(g)) map.set(g, []);
+        map.get(g)!.push(p);
+      } else {
+        ungroupedList.push(p);
+      }
+    });
+
+    const allGroups = Array.from(
+      new Set(projects.map((p) => p.group?.trim()).filter(Boolean) as string[])
+    ).sort();
+
+    return {
+      groups: Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b)),
+      ungrouped: ungroupedList,
+      existingGroups: allGroups,
+    };
+  }, [filteredProjects, projects]);
+
+  const hasGroupedProjects = targetProjectsForGroup.some((id) => {
+    const p = projects.find((proj) => proj.id === id);
+    return Boolean(p?.group);
+  });
+
+  function renderProjectTable(items: ProjectSummary[]) {
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8" />
+            <TableHead>{t("projects.table.name")}</TableHead>
+            <TableHead>{t("projects.table.ide")}</TableHead>
+            <TableHead>{t("projects.table.folders")}</TableHead>
+            <TableHead>{t("projects.table.terminals")}</TableHead>
+            <TableHead className="w-32 text-right" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((p) => (
+            <TableRow key={p.id}>
+              <TableCell>
+                <Checkbox
+                  checked={selected.has(p.id)}
+                  onCheckedChange={() => toggle(p.id)}
+                />
+              </TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  <span>{p.name}</span>
+                  {p.group && groups.length === 0 && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                      {p.group}
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">{IDE_LABELS[p.ide] ?? p.ide}</Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{p.folder_count}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {p.terminal_group_count > 0
+                  ? t("projects.table.groupCount", {
+                      count: p.terminal_group_count,
+                    })
+                  : "—"}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleLaunch(p.id)}
+                    disabled={busy}
+                  >
+                    <Play className="size-3.5" />
+                    {t("projects.actions.launch")}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        disabled={busy}
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => onEdit(p.id)}>
+                        {t("projects.actions.edit")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleDuplicate(p.id)}>
+                        <Copy className="size-3.5" />
+                        {t("projects.actions.duplicate")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => openGroupDialogForSingle(p)}>
+                        <Folder className="size-3.5" />
+                        {t("projects.actions.assignGroup")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setProjectToDelete(p)}
+                      >
+                        {t("projects.actions.delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6 pb-24">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-sm font-medium text-muted-foreground">{t("projects.title")}</h1>
+          <h1 className="text-sm font-medium text-muted-foreground">
+            {t("projects.title")}
+          </h1>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleImport} disabled={busy}>
               <FolderInput className="size-3.5" />
@@ -233,68 +505,137 @@ export function ProjectListPage({ onEdit }: Props) {
             {t("projects.clearSearch")}
           </Button>
         </div>
+      ) : groups.length === 0 ? (
+        renderProjectTable(filteredProjects)
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8" />
-              <TableHead>{t("projects.table.name")}</TableHead>
-              <TableHead>{t("projects.table.ide")}</TableHead>
-              <TableHead>{t("projects.table.folders")}</TableHead>
-              <TableHead>{t("projects.table.terminals")}</TableHead>
-              <TableHead className="w-32 text-right" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredProjects.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell>
-                  <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggle(p.id)} />
-                </TableCell>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{IDE_LABELS[p.ide] ?? p.ide}</Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{p.folder_count}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {p.terminal_group_count > 0 ? t("projects.table.groupCount", { count: p.terminal_group_count }) : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
+        <div className="flex flex-col gap-4">
+          {groups.map(([groupName, groupProjects]) => {
+            const isCollapsed = collapsedGroups.has(groupName);
+            const allSelected =
+              groupProjects.length > 0 &&
+              groupProjects.every((p) => selected.has(p.id));
+
+            return (
+              <div
+                key={groupName}
+                className="rounded-lg border border-border overflow-hidden bg-card shadow-xs"
+              >
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border/60">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 text-muted-foreground hover:text-foreground"
+                      onClick={() => toggleGroupCollapse(groupName)}
+                      aria-label="Toggle group collapse"
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="size-4" />
+                      ) : (
+                        <ChevronDown className="size-4" />
+                      )}
+                    </Button>
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={() =>
+                        handleToggleGroupSelect(groupProjects)
+                      }
+                    />
+                    <Folder className="size-4 text-primary" />
+                    <span className="font-semibold text-sm">{groupName}</span>
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4">
+                      {groupProjects.length}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleLaunch(p.id)}
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={() => handleLaunchGroup(groupProjects)}
                       disabled={busy}
                     >
-                      <Play className="size-3.5" />
-                      {t("projects.actions.launch")}
+                      <Play className="size-3" />
+                      {t("projects.launchGroup", {
+                        count: groupProjects.length,
+                      })}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-7" disabled={busy}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground"
+                        >
                           <MoreHorizontal className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => onEdit(p.id)}>
-                          {t("projects.actions.edit")}
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            setGroupToRename(groupName);
+                            setIsRenameDialogOpen(true);
+                          }}
+                        >
+                          <Edit2 className="size-3.5" />
+                          {t("projects.actions.renameGroup")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => handleDuplicate(p.id)}>
-                          <Copy className="size-3.5" />
-                          {t("projects.actions.duplicate")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" onSelect={() => setProjectToDelete(p)}>
-                          {t("projects.actions.delete")}
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => handleUngroupAll(groupName)}
+                        >
+                          <FolderX className="size-3.5" />
+                          {t("projects.actions.ungroupAll")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </div>
+
+                {!isCollapsed && renderProjectTable(groupProjects)}
+              </div>
+            );
+          })}
+
+          {ungrouped.length > 0 && (
+            <div className="rounded-lg border border-border overflow-hidden bg-card shadow-xs">
+              <div className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border/60">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 text-muted-foreground hover:text-foreground"
+                    onClick={() => toggleGroupCollapse("__ungrouped__")}
+                    aria-label="Toggle ungrouped collapse"
+                  >
+                    {collapsedGroups.has("__ungrouped__") ? (
+                      <ChevronRight className="size-4" />
+                    ) : (
+                      <ChevronDown className="size-4" />
+                    )}
+                  </Button>
+                  <Checkbox
+                    checked={
+                      ungrouped.length > 0 &&
+                      ungrouped.every((p) => selected.has(p.id))
+                    }
+                    onCheckedChange={() => handleToggleGroupSelect(ungrouped)}
+                  />
+                  <span className="font-medium text-sm text-muted-foreground">
+                    {t("projects.ungroupedProjects")}
+                  </span>
+                  <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">
+                    {ungrouped.length}
+                  </Badge>
+                </div>
+              </div>
+
+              {!collapsedGroups.has("__ungrouped__") &&
+                renderProjectTable(ungrouped)}
+            </div>
+          )}
+        </div>
       )}
 
       {selected.size > 0 && (
@@ -303,9 +644,20 @@ export function ProjectListPage({ onEdit }: Props) {
             <span className="text-sm text-muted-foreground">
               {t("projects.selectedCount", { count: selected.size })}
             </span>
-            <Button onClick={handleLaunchSelected} disabled={busy}>
-              {t("projects.launchSelected")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={openGroupDialogForSelection}
+                disabled={busy}
+              >
+                <Folder className="size-3.5 mr-1" />
+                {t("projects.groupSelected")}
+              </Button>
+              <Button onClick={handleLaunchSelected} disabled={busy}>
+                <Play className="size-3.5 mr-1" />
+                {t("projects.launchSelected")}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -344,11 +696,30 @@ export function ProjectListPage({ onEdit }: Props) {
               onClick={handleConfirmDelete}
               disabled={busy}
             >
-              {busy ? t("projects.deleteDialog.deleting") : t("projects.deleteDialog.confirm")}
+              {busy
+                ? t("projects.deleteDialog.deleting")
+                : t("projects.deleteDialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProjectGroupDialog
+        open={isGroupDialogOpen}
+        onOpenChange={setIsGroupDialogOpen}
+        selectedCount={targetProjectsForGroup.length}
+        existingGroups={existingGroups}
+        initialGroupName={initialGroupNameForDialog}
+        hasGroupedProjects={hasGroupedProjects}
+        onSaveGroup={handleSaveGroup}
+      />
+
+      <RenameGroupDialog
+        open={isRenameDialogOpen}
+        onOpenChange={setIsRenameDialogOpen}
+        oldName={groupToRename}
+        onRename={handleRenameGroup}
+      />
     </div>
   );
 }

@@ -2,7 +2,8 @@ mod commands;
 
 use commands::{
     build_state, delete_project, detect_folder_commands, import_vscode_workspace, launch_many,
-    launch_project, list_projects, load_project, preview_workspace, save_project,
+    launch_project, list_projects, load_project, preview_workspace, rename_project_group,
+    save_project, set_projects_group,
 };
 
 #[cfg(target_os = "macos")]
@@ -55,6 +56,8 @@ pub fn run() {
             launch_many,
             import_vscode_workspace,
             detect_folder_commands,
+            set_projects_group,
+            rename_project_group,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
