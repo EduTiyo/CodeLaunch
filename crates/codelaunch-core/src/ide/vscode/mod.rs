@@ -14,22 +14,30 @@ use workspace_file::{default_vscode_settings, VsCodeFolderEntry, VsCodeWorkspace
 pub use import::parse_vscode_workspace;
 
 pub struct VsCodeAdapter {
-    /// The `code` CLI binary name/path. Configurable so users with a non-standard
-    /// install (or a fork like a Cursor-style adapter reusing this code) can override it.
+    pub kind: IdeKind,
+    /// The CLI binary name/path. Configurable so users with a non-standard
+    /// install (or a fork like Cursor, VSCodium, Windsurf) can override it.
     pub cli_binary: String,
+}
+
+impl VsCodeAdapter {
+    pub fn new(kind: IdeKind, cli_binary: impl Into<String>) -> Self {
+        Self {
+            kind,
+            cli_binary: cli_binary.into(),
+        }
+    }
 }
 
 impl Default for VsCodeAdapter {
     fn default() -> Self {
-        Self {
-            cli_binary: "code".into(),
-        }
+        Self::new(IdeKind::VsCode, "code")
     }
 }
 
 impl IdeAdapter for VsCodeAdapter {
     fn kind(&self) -> IdeKind {
-        IdeKind::VsCode
+        self.kind
     }
 
     fn render(&self, project: &Project, output_dir: &Path) -> Result<RenderedWorkspace> {
@@ -84,68 +92,146 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
         }
     }
 
-    // 2. OS-specific known locations when resolving default 'code'
-    if binary == "code" {
+    // 2. OS-specific known locations for supported IDE binaries
+    let known_candidates: &[&str] = match binary {
+        "code" => &[
+            #[cfg(target_os = "macos")]
+            "/opt/homebrew/bin/code",
+            #[cfg(target_os = "macos")]
+            "/usr/local/bin/code",
+            #[cfg(target_os = "macos")]
+            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+            #[cfg(target_os = "macos")]
+            "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files (x86)\\Microsoft VS Code\\bin\\code.cmd",
+            #[cfg(target_os = "linux")]
+            "/usr/bin/code",
+            #[cfg(target_os = "linux")]
+            "/snap/bin/code",
+            #[cfg(target_os = "linux")]
+            "/usr/local/bin/code",
+        ],
+        "cursor" => &[
+            #[cfg(target_os = "macos")]
+            "/opt/homebrew/bin/cursor",
+            #[cfg(target_os = "macos")]
+            "/usr/local/bin/cursor",
+            #[cfg(target_os = "macos")]
+            "/Applications/Cursor.app/Contents/Resources/app/bin/cursor",
+            #[cfg(target_os = "macos")]
+            "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Cursor\\bin\\cursor.cmd",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Cursor\\resources\\app\\bin\\cursor.cmd",
+            #[cfg(target_os = "linux")]
+            "/usr/bin/cursor",
+            #[cfg(target_os = "linux")]
+            "/snap/bin/cursor",
+            #[cfg(target_os = "linux")]
+            "/usr/local/bin/cursor",
+        ],
+        "codium" => &[
+            #[cfg(target_os = "macos")]
+            "/opt/homebrew/bin/codium",
+            #[cfg(target_os = "macos")]
+            "/usr/local/bin/codium",
+            #[cfg(target_os = "macos")]
+            "/Applications/VSCodium.app/Contents/Resources/app/bin/codium",
+            #[cfg(target_os = "macos")]
+            "/Applications/VSCodium - Insiders.app/Contents/Resources/app/bin/codium",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\VSCodium\\bin\\codium.cmd",
+            #[cfg(target_os = "linux")]
+            "/usr/bin/codium",
+            #[cfg(target_os = "linux")]
+            "/snap/bin/codium",
+            #[cfg(target_os = "linux")]
+            "/usr/local/bin/codium",
+        ],
+        "windsurf" => &[
+            #[cfg(target_os = "macos")]
+            "/opt/homebrew/bin/windsurf",
+            #[cfg(target_os = "macos")]
+            "/usr/local/bin/windsurf",
+            #[cfg(target_os = "macos")]
+            "/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf",
+            #[cfg(target_os = "macos")]
+            "/Applications/Windsurf.app/Contents/MacOS/Windsurf",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Windsurf\\bin\\windsurf.cmd",
+            #[cfg(target_os = "linux")]
+            "/usr/bin/windsurf",
+            #[cfg(target_os = "linux")]
+            "/snap/bin/windsurf",
+            #[cfg(target_os = "linux")]
+            "/usr/local/bin/windsurf",
+        ],
+        _ => &[],
+    };
+
+    for candidate in known_candidates {
+        let p = PathBuf::from(candidate);
+        if p.is_file() {
+            return p;
+        }
+    }
+
+    if let Some(dirs) = directories::BaseDirs::new() {
         #[cfg(target_os = "macos")]
         {
-            let candidates = [
-                "/opt/homebrew/bin/code",
-                "/usr/local/bin/code",
-                "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
-                "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code",
-            ];
-            for candidate in candidates {
-                let p = PathBuf::from(candidate);
-                if p.is_file() {
-                    return p;
-                }
-            }
-            if let Some(dirs) = directories::BaseDirs::new() {
-                let home = dirs.home_dir();
-                let user_candidates = [
+            let home = dirs.home_dir();
+            let user_candidates: Vec<PathBuf> = match binary {
+                "code" => vec![
                     home.join(".local/bin/code"),
                     home.join("bin/code"),
                     home.join(
                         "Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
                     ),
-                ];
-                for candidate in user_candidates {
-                    if candidate.is_file() {
-                        return candidate;
-                    }
+                ],
+                "cursor" => vec![
+                    home.join(".local/bin/cursor"),
+                    home.join("bin/cursor"),
+                    home.join("Applications/Cursor.app/Contents/Resources/app/bin/cursor"),
+                ],
+                "codium" => vec![
+                    home.join(".local/bin/codium"),
+                    home.join("bin/codium"),
+                    home.join("Applications/VSCodium.app/Contents/Resources/app/bin/codium"),
+                ],
+                "windsurf" => vec![
+                    home.join(".local/bin/windsurf"),
+                    home.join("bin/windsurf"),
+                    home.join("Applications/Windsurf.app/Contents/Resources/app/bin/windsurf"),
+                ],
+                _ => vec![],
+            };
+            for candidate in user_candidates {
+                if candidate.is_file() {
+                    return candidate;
                 }
             }
         }
 
         #[cfg(target_os = "windows")]
         {
-            if let Some(dirs) = directories::BaseDirs::new() {
-                let candidate = dirs
-                    .data_local_dir()
-                    .join("Programs/Microsoft VS Code/bin/code.cmd");
+            let local_data = dirs.data_local_dir();
+            let user_candidates: Vec<PathBuf> = match binary {
+                "code" => vec![local_data.join("Programs/Microsoft VS Code/bin/code.cmd")],
+                "cursor" => vec![
+                    local_data.join("Programs/cursor/bin/cursor.cmd"),
+                    local_data.join("Programs/cursor/resources/app/bin/cursor.cmd"),
+                ],
+                "codium" => vec![local_data.join("Programs/VSCodium/bin/codium.cmd")],
+                "windsurf" => vec![local_data.join("Programs/windsurf/bin/windsurf.cmd")],
+                _ => vec![],
+            };
+            for candidate in user_candidates {
                 if candidate.is_file() {
                     return candidate;
-                }
-            }
-            let candidates = [
-                "C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd",
-                "C:\\Program Files (x86)\\Microsoft VS Code\\bin\\code.cmd",
-            ];
-            for candidate in candidates {
-                let p = PathBuf::from(candidate);
-                if p.is_file() {
-                    return p;
-                }
-            }
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let candidates = ["/usr/bin/code", "/snap/bin/code", "/usr/local/bin/code"];
-            for candidate in candidates {
-                let p = PathBuf::from(candidate);
-                if p.is_file() {
-                    return p;
                 }
             }
         }

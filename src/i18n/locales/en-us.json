@@ -65,7 +65,7 @@
     "defaultProjectName": "New Project",
     "name": "Name",
     "ide": "IDE",
-    "comingSoon": "Other IDEs (Cursor, JetBrains) coming soon.",
+    "comingSoon": "Other IDEs (JetBrains family) coming soon.",
     "folders": "Folders",
     "addFolder": "Folder",
     "noFolders": "No folders yet.",
@@ -82,7 +82,7 @@
     "toasts": {
       "addFolderFirst": "Add a folder before creating a terminal.",
       "nameRequired": "Project name cannot be empty.",
-      "savedAndOpened": "Saved and opened in VS Code.",
+      "savedAndOpened": "Saved and opened in {{ide}}.",
       "saved": "Project saved."
     }
   },

@@ -54,8 +54,15 @@ pub struct IdeRegistry {
 impl IdeRegistry {
     pub fn new() -> Self {
         let mut adapters: HashMap<IdeKind, Box<dyn IdeAdapter>> = HashMap::new();
-        let vscode = vscode::VsCodeAdapter::default();
-        adapters.insert(vscode.kind(), Box::new(vscode));
+        for kind in [
+            IdeKind::VsCode,
+            IdeKind::Cursor,
+            IdeKind::Vscodium,
+            IdeKind::Windsurf,
+        ] {
+            let adapter = vscode::VsCodeAdapter::new(kind, kind.default_binary());
+            adapters.insert(kind, Box::new(adapter));
+        }
         Self { adapters }
     }
 
@@ -70,5 +77,25 @@ impl IdeRegistry {
 impl Default for IdeRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_contains_all_ide_kinds() {
+        let registry = IdeRegistry::new();
+        for kind in [
+            IdeKind::VsCode,
+            IdeKind::Cursor,
+            IdeKind::Vscodium,
+            IdeKind::Windsurf,
+        ] {
+            let adapter = registry.get(kind);
+            assert!(adapter.is_ok(), "missing adapter for {kind:?}");
+            assert_eq!(adapter.unwrap().kind(), kind);
+        }
     }
 }
