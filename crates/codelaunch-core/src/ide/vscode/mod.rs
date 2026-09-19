@@ -94,7 +94,9 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
                 let user_candidates = [
                     home.join(".local/bin/code"),
                     home.join("bin/code"),
-                    home.join("Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"),
+                    home.join(
+                        "Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+                    ),
                 ];
                 for candidate in user_candidates {
                     if candidate.is_file() {
@@ -128,11 +130,7 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
 
         #[cfg(target_os = "linux")]
         {
-            let candidates = [
-                "/usr/bin/code",
-                "/snap/bin/code",
-                "/usr/local/bin/code",
-            ];
+            let candidates = ["/usr/bin/code", "/snap/bin/code", "/usr/local/bin/code"];
             for candidate in candidates {
                 let p = PathBuf::from(candidate);
                 if p.is_file() {
@@ -222,7 +220,11 @@ mod tests {
             if Path::new("/Applications/Visual Studio Code.app").exists()
                 || Path::new("/opt/homebrew/bin/code").exists()
             {
-                assert!(resolved.is_file(), "expected resolved path to exist: {:?}", resolved);
+                assert!(
+                    resolved.is_file(),
+                    "expected resolved path to exist: {:?}",
+                    resolved
+                );
             }
         }
     }

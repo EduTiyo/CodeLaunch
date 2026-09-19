@@ -40,7 +40,9 @@ pub fn validate(project: &Project) -> Result<(), Vec<ValidationError>> {
                 ));
             }
             if !seen_labels.insert(&terminal.label) {
-                errors.push(ValidationError::DuplicateTerminalLabel(terminal.label.clone()));
+                errors.push(ValidationError::DuplicateTerminalLabel(
+                    terminal.label.clone(),
+                ));
             }
         }
     }
@@ -95,7 +97,10 @@ mod tests {
 
         let errors = validate(&project).unwrap_err();
         assert_eq!(errors.len(), 1);
-        assert!(matches!(errors[0], ValidationError::DuplicateTerminalLabel(_)));
+        assert!(matches!(
+            errors[0],
+            ValidationError::DuplicateTerminalLabel(_)
+        ));
     }
 
     #[test]

@@ -174,7 +174,10 @@ mod tests {
 
     #[test]
     fn parse_accepts_legacy_shell_env_var_suffix() {
-        let args = vec!["-lic".to_string(), "npm run dev; exec $SHELL -l".to_string()];
+        let args = vec![
+            "-lic".to_string(),
+            "npm run dev; exec $SHELL -l".to_string(),
+        ];
         let (command, keep_alive) = parse_shell_args(&args);
         assert_eq!(command.as_deref(), Some("npm run dev"));
         assert!(keep_alive);
