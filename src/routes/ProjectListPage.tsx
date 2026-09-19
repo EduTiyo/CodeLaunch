@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { FolderInput, MoreHorizontal, Plus, Rocket } from "lucide-react";
+import { FolderInput, MoreHorizontal, Play, Plus, Rocket } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 import type { ProjectSummary } from "@/lib/types";
 import {
@@ -160,7 +160,7 @@ export function ProjectListPage({ onEdit }: Props) {
               <TableHead>{t("projects.table.ide")}</TableHead>
               <TableHead>{t("projects.table.folders")}</TableHead>
               <TableHead>{t("projects.table.terminals")}</TableHead>
-              <TableHead className="w-8" />
+              <TableHead className="w-32 text-right" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,25 +177,33 @@ export function ProjectListPage({ onEdit }: Props) {
                 <TableCell className="text-muted-foreground">
                   {p.terminal_group_count > 0 ? t("projects.table.groupCount", { count: p.terminal_group_count }) : "—"}
                 </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-7" disabled={busy}>
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleLaunch(p.id)}>
-                        {t("projects.actions.launch")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(p.id)}>
-                        {t("projects.actions.edit")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem variant="destructive" onClick={() => setProjectToDelete(p)}>
-                        {t("projects.actions.delete")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleLaunch(p.id)}
+                      disabled={busy}
+                    >
+                      <Play className="size-3.5" />
+                      {t("projects.actions.launch")}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="size-7" disabled={busy}>
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(p.id)}>
+                          {t("projects.actions.edit")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onClick={() => setProjectToDelete(p)}>
+                          {t("projects.actions.delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
