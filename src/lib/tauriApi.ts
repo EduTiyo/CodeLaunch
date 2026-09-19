@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Project, ProjectSummary } from "./types";
+import type { DetectedCommand, Project, ProjectSummary } from "./types";
 
 export function listProjects(): Promise<ProjectSummary[]> {
   return invoke("list_projects");
@@ -36,4 +36,16 @@ export function importVsCodeWorkspace(path: string): Promise<Project> {
 
 export function openTerminalSettings(): Promise<void> {
   return invoke("open_terminal_settings");
+}
+
+export function detectFolderCommands(path: string): Promise<DetectedCommand[]> {
+  return invoke("detect_folder_commands", { path });
+}
+
+export function setProjectsGroup(ids: string[], group: string | null): Promise<void> {
+  return invoke("set_projects_group", { ids, group });
+}
+
+export function renameProjectGroup(oldName: string, newName: string): Promise<void> {
+  return invoke("rename_project_group", { oldName, newName });
 }

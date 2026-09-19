@@ -146,3 +146,66 @@ pub fn open_terminal_settings() -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn detect_folder_commands(
+    path: String,
+) -> Result<Vec<codelaunch_core::detector::DetectedCommand>, String> {
+    Ok(codelaunch_core::detector::detect_commands_in_folder(
+        std::path::Path::new(&path),
+    ))
+}
+
+#[tauri::command]
+pub fn set_projects_group(
+    state: tauri::State<SharedState>,
+    ids: Vec<Uuid>,
+    group: Option<String>,
+) -> Result<(), String> {
+    let guard = state.lock().unwrap();
+    let trimmed_group = group.and_then(|g| {
+        let t = g.trim().to_string();
+        if t.is_empty() {
+            None
+        } else {
+            Some(t)
+        }
+    });
+
+    for id in ids {
+        if let Ok(mut project) = guard.repo.load(id) {
+            project.group = trimmed_group.clone();
+            project.updated_at = chrono::Utc::now();
+            let _ = guard.repo.save(&project);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn rename_project_group(
+    state: tauri::State<SharedState>,
+    old_name: String,
+    new_name: String,
+) -> Result<(), String> {
+    let guard = state.lock().unwrap();
+    let old_trimmed = old_name.trim();
+    let new_trimmed = new_name.trim();
+    let target = if new_trimmed.is_empty() {
+        None
+    } else {
+        Some(new_trimmed.to_string())
+    };
+
+    let summaries = guard.repo.list().map_err(|e| e.to_string())?;
+    for summary in summaries {
+        if summary.group.as_deref() == Some(old_trimmed) {
+            if let Ok(mut project) = guard.repo.load(summary.id) {
+                project.group = target.clone();
+                project.updated_at = chrono::Utc::now();
+                let _ = guard.repo.save(&project);
+            }
+        }
+    }
+    Ok(())
+}

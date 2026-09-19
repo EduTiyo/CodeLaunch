@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { ChevronDown, ExternalLink, FolderPlus, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, FolderPlus, Sparkles, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Folder, IdeKind, Project, Terminal, TerminalGroup } from "@/lib/types";
+import type { DetectedCommand, Folder, IdeKind, Project, Terminal, TerminalGroup } from "@/lib/types";
 import { emptyProject, IDE_LABELS, IDE_OPTIONS, newId } from "@/lib/types";
-import { launchProject, loadProject, openTerminalSettings, previewWorkspace, saveProject } from "@/lib/tauriApi";
+import { detectFolderCommands, launchProject, loadProject, openTerminalSettings, previewWorkspace, saveProject } from "@/lib/tauriApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TerminalGrid } from "@/components/TerminalGrid";
+import { AutoDetectDialog } from "@/components/AutoDetectDialog";
 
 interface Props {
   projectId: string | null;
@@ -41,6 +42,8 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
   const { t } = useTranslation();
   const [project, setProject] = useState<Project | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [detectFolder, setDetectFolder] = useState<Folder | null>(null);
+  const [isDetectOpen, setIsDetectOpen] = useState(false);
   const initialJsonRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -109,7 +112,90 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
       ),
     }));
     update({ folders: updatedFolders, terminal_groups: updatedGroups });
+
+    if (newFolders.length === 1) {
+      const added = newFolders[0];
+      detectFolderCommands(added.path)
+        .then((cmds) => {
+          if (cmds.length > 0) {
+            setDetectFolder(added);
+            setIsDetectOpen(true);
+          }
+        })
+        .catch(() => {});
+    }
   }
+
+  function handleAddDetectedCommands(
+    selected: DetectedCommand[],
+    targetGroupId: string,
+    newGroupName?: string
+  ) {
+    if (!project || !detectFolder || selected.length === 0) return;
+
+    let groups = [...project.terminal_groups];
+    let targetGroup: TerminalGroup;
+
+    if (targetGroupId === "__new__" || groups.length === 0) {
+      const nextOrder = groups.length + 1;
+      const group: TerminalGroup = {
+        id: newId(),
+        name: newGroupName?.trim() || `group${nextOrder}`,
+        order: nextOrder,
+        terminals: [],
+      };
+      groups.push(group);
+      targetGroup = group;
+    } else {
+      targetGroup = groups.find((g) => g.id === targetGroupId) ?? groups[0];
+    }
+
+    const existingLabels = new Set<string>();
+    groups.forEach((g) => {
+      g.terminals.forEach((t) => existingLabels.add(t.label));
+    });
+
+    const newTerminals: Terminal[] = selected.map((cmd) => {
+      let label = cmd.label;
+      let counter = 2;
+      while (existingLabels.has(label)) {
+        label = `${cmd.label} (${counter})`;
+        counter++;
+      }
+      existingLabels.add(label);
+
+      return {
+        id: newId(),
+        label,
+        folder_id: detectFolder.id,
+        command: cmd.command,
+        keep_alive: true,
+        order: 0,
+      };
+    });
+
+    const updatedGroups = groups.map((g) => {
+      if (g.id !== targetGroup.id) return g;
+      const combined = [...g.terminals, ...newTerminals].map((t, idx) => ({
+        ...t,
+        order: idx,
+      }));
+      return { ...g, terminals: combined };
+    });
+
+    update({
+      terminal_groups: updatedGroups,
+      terminals_enabled: true,
+    });
+
+    toast.success(
+      t("editor.toasts.detectedAdded", {
+        count: selected.length,
+        folder: detectFolder.name,
+      })
+    );
+  }
+
 
   function removeFolder(id: string) {
     const remainingFolders = project!.folders.filter((f) => f.id !== id);
@@ -289,6 +375,17 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
               onChange={(e) => update({ name: e.target.value })}
             />
           </div>
+          <div className="w-44 space-y-1.5">
+            <Label htmlFor="project-group">{t("editor.group")}</Label>
+            <Input
+              id="project-group"
+              value={project.group ?? ""}
+              onChange={(e) =>
+                update({ group: e.target.value.trim() ? e.target.value : null })
+              }
+              placeholder={t("editor.groupPlaceholder")}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label>{t("editor.openWith")}</Label>
             <Select
@@ -346,14 +443,29 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
                   <p className="text-sm font-medium">{f.name}</p>
                   <p className="truncate font-mono text-xs text-muted-foreground">{f.path}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 text-muted-foreground"
-                  onClick={() => removeFolder(f.id)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setDetectFolder(f);
+                      setIsDetectOpen(true);
+                    }}
+                    title={t("editor.detectScriptsTooltip")}
+                  >
+                    <Sparkles className="size-3.5" />
+                    {t("editor.detectScripts")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground"
+                    onClick={() => removeFolder(f.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -408,6 +520,15 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
           <Button onClick={() => handleSave(true)}>{t("editor.saveAndOpen")}</Button>
         </div>
       </div>
+
+      <AutoDetectDialog
+        open={isDetectOpen}
+        onOpenChange={setIsDetectOpen}
+        folder={detectFolder}
+        groups={project.terminal_groups}
+        onAddCommands={handleAddDetectedCommands}
+      />
     </div>
   );
 }
+

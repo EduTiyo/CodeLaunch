@@ -11,6 +11,8 @@ pub const CURRENT_SCHEMA_VERSION: u32 = 1;
 pub struct Project {
     pub id: Uuid,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     pub ide: IdeKind,
     pub folders: Vec<Folder>,
     pub terminals_enabled: bool,
@@ -29,6 +31,7 @@ impl Project {
         Self {
             id: Uuid::new_v4(),
             name: name.into(),
+            group: None,
             ide,
             folders: Vec::new(),
             terminals_enabled: false,
@@ -50,6 +53,8 @@ impl Project {
 pub struct ProjectSummary {
     pub id: Uuid,
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     pub ide: IdeKind,
     pub folder_count: usize,
     pub terminal_group_count: usize,
@@ -61,6 +66,7 @@ impl From<&Project> for ProjectSummary {
         Self {
             id: project.id,
             name: project.name.clone(),
+            group: project.group.clone(),
             ide: project.ide,
             folder_count: project.folders.len(),
             terminal_group_count: project.terminal_groups.len(),
@@ -190,5 +196,46 @@ mod tests {
             let deserialized: IdeKind = serde_json::from_str(&serialized).unwrap();
             assert_eq!(deserialized, kind);
         }
+    }
+
+    #[test]
+    fn project_group_backward_compatibility() {
+        let mut project = Project::new("My App", IdeKind::VsCode);
+        assert_eq!(project.group, None);
+
+        project.group = Some("Work".to_string());
+        let serialized = serde_json::to_string(&project).unwrap();
+        assert!(serialized.contains("\"group\":\"Work\""));
+
+        let summary = ProjectSummary::from(&project);
+        assert_eq!(summary.group, Some("Work".to_string()));
+
+        // Backwards compatibility: deserialize JSON without "group" field
+        let legacy_json = r#"{
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "Legacy",
+            "ide": "vs-code",
+            "folders": [],
+            "terminals_enabled": false,
+            "terminal_groups": [],
+            "extra_settings": {},
+            "schema_version": 1,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let deserialized: Project = serde_json::from_str(legacy_json).unwrap();
+        assert_eq!(deserialized.group, None);
+
+        let legacy_summary_json = r#"{
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "Legacy",
+            "ide": "vs-code",
+            "folder_count": 0,
+            "terminal_group_count": 0,
+            "updated_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let deserialized_summary: ProjectSummary =
+            serde_json::from_str(legacy_summary_json).unwrap();
+        assert_eq!(deserialized_summary.group, None);
     }
 }

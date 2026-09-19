@@ -41,10 +41,30 @@
       "launch": "Abrir",
       "edit": "Editar",
       "duplicate": "Duplicar",
-      "delete": "Excluir"
+      "delete": "Excluir",
+      "assignGroup": "Atribuir a grupo...",
+      "renameGroup": "Renomear grupo...",
+      "ungroupAll": "Desagrupar todos"
     },
     "selectedCount": "{{count}} selecionado(s)",
     "launchSelected": "Abrir selecionados",
+    "groupSelected": "Agrupar",
+    "launchGroup": "Abrir grupo ({{count}})",
+    "ungroupedProjects": "Projetos sem Grupo",
+    "groupDialog": {
+      "title": "Agrupar Projetos",
+      "description": "Atribua {{count}} projeto(s) selecionado(s) a um grupo para organizá-los e abri-los juntos facilmente.",
+      "nameLabel": "Nome do grupo",
+      "placeholder": "ex: Trabalho, Pessoal, Ferramentas",
+      "existingGroups": "Grupos existentes",
+      "ungroup": "Remover do grupo",
+      "apply": "Salvar grupo"
+    },
+    "renameGroupDialog": {
+      "title": "Renomear Grupo",
+      "description": "Digite um novo nome para o grupo \"{{name}}\".",
+      "nameLabel": "Novo nome do grupo"
+    },
     "deleteDialog": {
       "title": "Excluir projeto",
       "description": "Tem certeza que deseja excluir o projeto <strong title=\"\">\"{{name}}\"</strong>? Esta ação não pode ser desfeita.",
@@ -58,12 +78,17 @@
       "workspacesOpened": "{{count}} workspace(s) aberto(s).",
       "completedWithErrors": "Concluído com erros: {{errors}}",
       "projectDeleted": "Projeto \"{{name}}\" excluído.",
-      "duplicated": "Projeto \"{{name}}\" duplicado."
+      "duplicated": "Projeto \"{{name}}\" duplicado.",
+      "groupUpdated": "Grupo atualizado para {{count}} projeto(s).",
+      "groupRenamed": "Grupo renomeado para \"{{name}}\".",
+      "groupRemoved": "Grupo removido de {{count}} projeto(s)."
     }
   },
   "editor": {
     "defaultProjectName": "Novo Projeto",
     "name": "Nome",
+    "group": "Grupo",
+    "groupPlaceholder": "ex: Trabalho, Pessoal",
     "openWith": "Abrir com",
     "comingSoon": "Outras IDEs (família JetBrains) em breve.",
     "folders": "Pastas",
@@ -76,6 +101,21 @@
     "terminalMacNotice": "No macOS, conceda permissão de Acessibilidade ao Terminal para abrir abas automaticamente.",
     "save": "Salvar",
     "saveAndOpen": "Salvar e abrir",
+    "detectScripts": "Detectar scripts",
+    "detectScriptsTooltip": "Escanear pasta em busca de scripts e comandos executáveis",
+    "detectDialog": {
+      "title": "Detecção Automática de Comandos",
+      "description": "Selecione os comandos detectados em {{folder}} para adicionar como terminais integrados.",
+      "scanning": "Escaneando pasta em busca de scripts...",
+      "noCommandsFound": "Nenhum script executável detectado nesta pasta.",
+      "noCommandsHint": "Suportados: package.json, Cargo.toml, docker-compose, Makefile, Python, Go",
+      "targetGroup": "Grupo de destino",
+      "newGroup": "+ Criar novo grupo (\"{{name}}\")",
+      "selectAll": "Selecionar todos",
+      "deselectAll": "Desmarcar todos",
+      "addCount": "Adicionar {{count}} terminais",
+      "addCount_one": "Adicionar 1 terminal"
+    },
     "unsavedChangesDialog": {
       "title": "Alterações não salvas",
       "description": "Você possui alterações não salvas neste projeto. Deseja sair e descartar as alterações?",
@@ -86,7 +126,9 @@
       "addFolderFirst": "Adicione uma pasta antes de criar um terminal.",
       "nameRequired": "O nome do projeto não pode ser vazio.",
       "savedAndOpened": "Salvo e aberto no {{ide}}.",
-      "saved": "Projeto salvo."
+      "saved": "Projeto salvo.",
+      "detectedAdded": "{{count}} terminal(is) adicionado(s) de {{folder}}.",
+      "detectError": "Falha ao escanear pasta para scripts."
     }
   },
   "terminals": {

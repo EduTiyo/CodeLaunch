@@ -24,6 +24,13 @@ export const IDE_LABELS: Record<IdeKind, string> = {
   "terminal": "Terminal",
 };
 
+export interface DetectedCommand {
+  label: string;
+  command: string;
+  source: string;
+  default_selected: boolean;
+}
+
 export interface Folder {
   id: string;
   name: string;
@@ -49,6 +56,7 @@ export interface TerminalGroup {
 export interface Project {
   id: string;
   name: string;
+  group?: string | null;
   ide: IdeKind;
   folders: Folder[];
   terminals_enabled: boolean;
@@ -62,6 +70,7 @@ export interface Project {
 export interface ProjectSummary {
   id: string;
   name: string;
+  group?: string | null;
   ide: IdeKind;
   folder_count: number;
   terminal_group_count: number;
@@ -77,6 +86,7 @@ export function emptyProject(name: string): Project {
   return {
     id: newId(),
     name,
+    group: null,
     ide: "vs-code",
     folders: [],
     terminals_enabled: false,
@@ -87,3 +97,4 @@ export function emptyProject(name: string): Project {
     updated_at: now,
   };
 }
+
