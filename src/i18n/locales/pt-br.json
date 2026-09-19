@@ -13,10 +13,16 @@
     "name": "Nome",
     "folders": "Pastas",
     "terminals": "Terminais",
-    "actions": "Ações"
+    "actions": "Ações",
+    "copy": "Cópia",
+    "discard": "Descartar",
+    "keepEditing": "Continuar editando"
   },
   "projects": {
     "title": "Projetos",
+    "searchPlaceholder": "Buscar projetos...",
+    "noSearchResults": "Nenhum projeto encontrado para \"{{query}}\".",
+    "clearSearch": "Limpar busca",
     "importWorkspace": "Importar .code-workspace...",
     "newProject": "Novo projeto",
     "emptyDescription": "Nenhum projeto ainda — importe um .code-workspace existente ou crie um novo.",
@@ -34,6 +40,7 @@
     "actions": {
       "launch": "Abrir",
       "edit": "Editar",
+      "duplicate": "Duplicar",
       "delete": "Excluir"
     },
     "selectedCount": "{{count}} selecionado(s)",
@@ -50,7 +57,8 @@
       "workspaceOpened": "Workspace aberto.",
       "workspacesOpened": "{{count}} workspace(s) aberto(s).",
       "completedWithErrors": "Concluído com erros: {{errors}}",
-      "projectDeleted": "Projeto \"{{name}}\" excluído."
+      "projectDeleted": "Projeto \"{{name}}\" excluído.",
+      "duplicated": "Projeto \"{{name}}\" duplicado."
     }
   },
   "editor": {
@@ -65,6 +73,12 @@
     "viewJson": "Ver JSON gerado",
     "save": "Salvar",
     "saveAndOpen": "Salvar e abrir",
+    "unsavedChangesDialog": {
+      "title": "Alterações não salvas",
+      "description": "Você possui alterações não salvas neste projeto. Deseja sair e descartar as alterações?",
+      "discard": "Descartar alterações",
+      "keepEditing": "Continuar editando"
+    },
     "toasts": {
       "addFolderFirst": "Adicione uma pasta antes de criar um terminal.",
       "nameRequired": "O nome do projeto não pode ser vazio.",
@@ -80,10 +94,15 @@
     "removeGroup": "Remover grupo",
     "emptyGroup": "Grupo vazio — adicione um terminal.",
     "terminalName": "Nome do terminal",
+    "groupNamePlaceholder": "Nome do grupo",
     "removeTerminal": "Remover terminal",
     "folderPlaceholder": "Pasta",
     "commandPlaceholder": "comando (opcional)",
-    "keepAlive": "manter vivo após o comando"
+    "keepAlive": "manter vivo após o comando",
+    "moveLeft": "Mover para a esquerda",
+    "moveRight": "Mover para a direita",
+    "moveUp": "Mover grupo para cima",
+    "moveDown": "Mover grupo para baixo"
   },
   "languages": {
     "en-us": "English (en-US)",

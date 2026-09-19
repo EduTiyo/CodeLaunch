@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { ChevronDown, FolderPlus, Trash2 } from "lucide-react";
@@ -16,20 +16,67 @@ import { TerminalGrid } from "@/components/TerminalGrid";
 
 interface Props {
   projectId: string | null;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
-export function ProjectEditorPage({ projectId }: Props) {
+function sanitizeProject(p: Project): Project {
+  const validFolderIds = new Set(p.folders.map((f) => f.id));
+  const fallbackFolderId = p.folders[0]?.id ?? "";
+  return {
+    ...p,
+    terminal_groups: (p.terminal_groups || []).map((g) => ({
+      ...g,
+      terminals: (g.terminals || []).map((t) =>
+        validFolderIds.has(t.folder_id)
+          ? t
+          : { ...t, folder_id: fallbackFolderId }
+      ),
+    })),
+  };
+}
+
+export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
   const { t } = useTranslation();
   const [project, setProject] = useState<Project | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const initialJsonRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
-      loadProject(projectId).then(setProject).catch((e) => toast.error(String(e)));
+      loadProject(projectId)
+        .then((raw) => {
+          const p = sanitizeProject(raw);
+          setProject(p);
+          initialJsonRef.current = JSON.stringify(p);
+          onDirtyChange?.(false);
+        })
+        .catch((e) => toast.error(String(e)));
     } else {
-      setProject(emptyProject(t("editor.defaultProjectName")));
+      const initial = emptyProject(t("editor.defaultProjectName"));
+      setProject(initial);
+      initialJsonRef.current = JSON.stringify(initial);
+      onDirtyChange?.(false);
     }
-  }, [projectId, t]);
+  }, [projectId, t, onDirtyChange]);
+
+  const handleSaveRef = useRef<(andOpen: boolean) => Promise<void>>(() => Promise.resolve());
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSaveRef.current(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!project || !initialJsonRef.current) return;
+    const isDirty = JSON.stringify(project) !== initialJsonRef.current;
+    onDirtyChange?.(isDirty);
+  }, [project, onDirtyChange]);
 
   if (!project) {
     return <p className="p-6 text-sm text-muted-foreground">{t("common.loading")}</p>;
@@ -129,6 +176,46 @@ export function ProjectEditorPage({ projectId }: Props) {
     });
   }
 
+  function updateGroupName(groupId: string, name: string) {
+    update({
+      terminal_groups: project!.terminal_groups.map((g) =>
+        g.id === groupId ? { ...g, name } : g
+      ),
+    });
+  }
+
+  function moveGroup(groupId: string, direction: "up" | "down") {
+    const groups = [...project!.terminal_groups];
+    const index = groups.findIndex((g) => g.id === groupId);
+    if (index === -1) return;
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= groups.length) return;
+    const [moved] = groups.splice(index, 1);
+    groups.splice(targetIndex, 0, moved);
+    update({
+      terminal_groups: groups.map((g, i) => ({ ...g, order: i + 1 })),
+    });
+  }
+
+  function moveTerminal(groupId: string, terminalId: string, direction: "left" | "right") {
+    update({
+      terminal_groups: project!.terminal_groups.map((g) => {
+        if (g.id !== groupId) return g;
+        const index = g.terminals.findIndex((t) => t.id === terminalId);
+        if (index === -1) return g;
+        const targetIndex = direction === "left" ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= g.terminals.length) return g;
+        const newTerminals = [...g.terminals];
+        const [moved] = newTerminals.splice(index, 1);
+        newTerminals.splice(targetIndex, 0, moved);
+        return {
+          ...g,
+          terminals: newTerminals.map((t, i) => ({ ...t, order: i })),
+        };
+      }),
+    });
+  }
+
   function removeTerminal(groupId: string, terminalId: string) {
     update({
       terminal_groups: project!.terminal_groups.map((g) =>
@@ -153,6 +240,8 @@ export function ProjectEditorPage({ projectId }: Props) {
     try {
       const saved = await saveProject(project!);
       setProject(saved);
+      initialJsonRef.current = JSON.stringify(saved);
+      onDirtyChange?.(false);
       if (andOpen) {
         await launchProject(saved.id);
         toast.success(t("editor.toasts.savedAndOpened"));
@@ -163,6 +252,8 @@ export function ProjectEditorPage({ projectId }: Props) {
       toast.error(String(e));
     }
   }
+
+  handleSaveRef.current = handleSave;
 
   async function handlePreview() {
     try {
@@ -188,7 +279,7 @@ export function ProjectEditorPage({ projectId }: Props) {
             <Label>{t("editor.ide")}</Label>
             <Select value={project.ide} disabled>
               <SelectTrigger className="w-40">
-                <SelectValue />
+                <SelectValue placeholder="VS Code" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="vs-code">VS Code</SelectItem>
@@ -251,6 +342,9 @@ export function ProjectEditorPage({ projectId }: Props) {
             onAddTerminal={addTerminal}
             onUpdateTerminal={updateTerminal}
             onRemoveTerminal={removeTerminal}
+            onUpdateGroupName={updateGroupName}
+            onMoveGroup={moveGroup}
+            onMoveTerminal={moveTerminal}
           />
         )}
       </section>
@@ -271,6 +365,7 @@ export function ProjectEditorPage({ projectId }: Props) {
         <div className="mx-auto flex max-w-3xl items-center justify-end gap-2 px-6 py-3">
           <Button variant="outline" onClick={() => handleSave(false)}>
             {t("common.save")}
+            <span className="ml-1 text-xs text-muted-foreground opacity-80">(⌘S)</span>
           </Button>
           <Button onClick={() => handleSave(true)}>{t("editor.saveAndOpen")}</Button>
         </div>

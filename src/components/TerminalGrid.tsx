@@ -12,6 +12,9 @@ interface Props {
   onAddTerminal: (groupId: string) => void;
   onUpdateTerminal: (groupId: string, terminalId: string, patch: Partial<Terminal>) => void;
   onRemoveTerminal: (groupId: string, terminalId: string) => void;
+  onUpdateGroupName: (groupId: string, name: string) => void;
+  onMoveGroup: (groupId: string, direction: "up" | "down") => void;
+  onMoveTerminal: (groupId: string, terminalId: string, direction: "left" | "right") => void;
 }
 
 export function TerminalGrid({
@@ -22,12 +25,15 @@ export function TerminalGrid({
   onAddTerminal,
   onUpdateTerminal,
   onRemoveTerminal,
+  onUpdateGroupName,
+  onMoveGroup,
+  onMoveTerminal,
 }: Props) {
   const { t } = useTranslation();
 
   return (
     <div className="flex flex-col gap-4">
-      {groups.map((group) => (
+      {groups.map((group, groupIndex) => (
         <TerminalGroupPanel
           key={group.id}
           group={group}
@@ -36,6 +42,14 @@ export function TerminalGrid({
           onUpdateTerminal={(terminalId, patch) => onUpdateTerminal(group.id, terminalId, patch)}
           onRemoveTerminal={(terminalId) => onRemoveTerminal(group.id, terminalId)}
           onRemoveGroup={() => onRemoveGroup(group.id)}
+          onUpdateGroupName={(name) => onUpdateGroupName(group.id, name)}
+          onMoveGroupUp={groupIndex > 0 ? () => onMoveGroup(group.id, "up") : undefined}
+          onMoveGroupDown={
+            groupIndex < groups.length - 1 ? () => onMoveGroup(group.id, "down") : undefined
+          }
+          onMoveTerminal={(terminalId, direction) =>
+            onMoveTerminal(group.id, terminalId, direction)
+          }
         />
       ))}
       <Button variant="outline" size="sm" className="self-start" onClick={onAddGroup}>
