@@ -1,4 +1,4 @@
-import { SquareTerminal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, SquareTerminal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Folder, Terminal } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,10 +12,19 @@ interface Props {
   folders: Folder[];
   onChange: (patch: Partial<Terminal>) => void;
   onRemove: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
 }
 
 /** One pane in a terminal split — styled like a real VS Code terminal tab. */
-export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
+export function TerminalPane({
+  terminal,
+  folders,
+  onChange,
+  onRemove,
+  onMoveLeft,
+  onMoveRight,
+}: Props) {
   const { t } = useTranslation();
 
   return (
@@ -28,19 +37,49 @@ export function TerminalPane({ terminal, folders, onChange, onRemove }: Props) {
           className="min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
           aria-label={t("terminals.terminalName")}
         />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-5 shrink-0"
-          onClick={onRemove}
-          aria-label={t("terminals.removeTerminal")}
-        >
-          <X className="size-3.5" />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          {onMoveLeft && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-5 shrink-0"
+              onClick={onMoveLeft}
+              aria-label={t("terminals.moveLeft")}
+              title={t("terminals.moveLeft")}
+            >
+              <ChevronLeft className="size-3" />
+            </Button>
+          )}
+          {onMoveRight && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-5 shrink-0"
+              onClick={onMoveRight}
+              aria-label={t("terminals.moveRight")}
+              title={t("terminals.moveRight")}
+            >
+              <ChevronRight className="size-3" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-5 shrink-0"
+            onClick={onRemove}
+            aria-label={t("terminals.removeTerminal")}
+            title={t("terminals.removeTerminal")}
+          >
+            <X className="size-3.5" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 p-2">
-        <Select value={terminal.folder_id} onValueChange={(folder_id) => onChange({ folder_id })}>
+        <Select
+          value={folders.some((f) => f.id === terminal.folder_id) ? terminal.folder_id : (folders[0]?.id ?? "")}
+          onValueChange={(folder_id) => onChange({ folder_id })}
+        >
           <SelectTrigger size="sm" className="w-full font-mono text-xs">
             <SelectValue placeholder={t("terminals.folderPlaceholder")} />
           </SelectTrigger>

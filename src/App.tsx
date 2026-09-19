@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { ProjectListPage } from "@/routes/ProjectListPage";
 import { ProjectEditorPage } from "@/routes/ProjectEditorPage";
 import { LanguageSelect } from "@/components/LanguageSelect";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type View = { mode: "list" } | { mode: "edit"; projectId: string | null };
 
@@ -30,7 +40,17 @@ function ThemeToggle() {
 function AppShell() {
   const { t } = useTranslation();
   const [view, setView] = useState<View>({ mode: "list" });
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const isEditing = view.mode === "edit";
+
+  function handleBackClick() {
+    if (isDirty) {
+      setShowUnsavedDialog(true);
+    } else {
+      setView({ mode: "list" });
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -41,7 +61,7 @@ function AppShell() {
               variant="ghost"
               size="sm"
               className="-ml-2"
-              onClick={() => setView({ mode: "list" })}
+              onClick={handleBackClick}
             >
               <ArrowLeft className="size-3.5" />
               {t("common.back")}
@@ -56,11 +76,45 @@ function AppShell() {
         </div>
       </header>
 
-      {isEditing ? (
-        <ProjectEditorPage projectId={view.projectId} />
-      ) : (
-        <ProjectListPage onEdit={(id) => setView({ mode: "edit", projectId: id })} />
-      )}
+      <ErrorBoundary onReset={() => setView({ mode: "list" })}>
+        {isEditing ? (
+          <ProjectEditorPage
+            projectId={view.projectId}
+            onDirtyChange={setIsDirty}
+          />
+        ) : (
+          <ProjectListPage
+            onEdit={(id) => {
+              setIsDirty(false);
+              setView({ mode: "edit", projectId: id });
+            }}
+          />
+        )}
+      </ErrorBoundary>
+
+      <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("editor.unsavedChangesDialog.title")}</DialogTitle>
+            <DialogDescription>{t("editor.unsavedChangesDialog.description")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUnsavedDialog(false)}>
+              {t("editor.unsavedChangesDialog.keepEditing")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setShowUnsavedDialog(false);
+                setIsDirty(false);
+                setView({ mode: "list" });
+              }}
+            >
+              {t("editor.unsavedChangesDialog.discard")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Toaster />
     </div>

@@ -13,10 +13,16 @@
     "name": "Name",
     "folders": "Folders",
     "terminals": "Terminals",
-    "actions": "Actions"
+    "actions": "Actions",
+    "copy": "Copy",
+    "discard": "Discard",
+    "keepEditing": "Keep editing"
   },
   "projects": {
     "title": "Projects",
+    "searchPlaceholder": "Search projects...",
+    "noSearchResults": "No projects found for \"{{query}}\".",
+    "clearSearch": "Clear search",
     "importWorkspace": "Import .code-workspace...",
     "newProject": "New project",
     "emptyDescription": "No projects yet — import an existing .code-workspace or create a new one.",
@@ -34,13 +40,14 @@
     "actions": {
       "launch": "Open",
       "edit": "Edit",
+      "duplicate": "Duplicate",
       "delete": "Delete"
     },
     "selectedCount": "{{count}} selected",
     "launchSelected": "Open selected",
     "deleteDialog": {
       "title": "Delete project",
-      "description": "Are you sure you want to delete project <strong title=\"\">\"{{name}}\"</strong>? This action cannot be undone.",
+      "description": "Are you sure you want to delete <strong title=\"\">\"{{name}}\"</strong>? This action cannot be undone.",
       "cancel": "Cancel",
       "deleting": "Deleting...",
       "confirm": "Delete"
@@ -50,7 +57,8 @@
       "workspaceOpened": "Workspace opened.",
       "workspacesOpened": "{{count}} workspace(s) opened.",
       "completedWithErrors": "Completed with errors: {{errors}}",
-      "projectDeleted": "Project \"{{name}}\" deleted."
+      "projectDeleted": "Project \"{{name}}\" deleted.",
+      "duplicated": "Project \"{{name}}\" duplicated."
     }
   },
   "editor": {
@@ -65,6 +73,12 @@
     "viewJson": "View generated JSON",
     "save": "Save",
     "saveAndOpen": "Save and open",
+    "unsavedChangesDialog": {
+      "title": "Unsaved changes",
+      "description": "You have unsaved changes in this project. Do you want to leave and discard them?",
+      "discard": "Discard changes",
+      "keepEditing": "Keep editing"
+    },
     "toasts": {
       "addFolderFirst": "Add a folder before creating a terminal.",
       "nameRequired": "Project name cannot be empty.",
@@ -80,10 +94,15 @@
     "removeGroup": "Remove group",
     "emptyGroup": "Empty group — add a terminal.",
     "terminalName": "Terminal name",
+    "groupNamePlaceholder": "Group name",
     "removeTerminal": "Remove terminal",
     "folderPlaceholder": "Folder",
     "commandPlaceholder": "command (optional)",
-    "keepAlive": "keep alive after command"
+    "keepAlive": "keep alive after command",
+    "moveLeft": "Move left",
+    "moveRight": "Move right",
+    "moveUp": "Move group up",
+    "moveDown": "Move group down"
   },
   "languages": {
     "en-us": "English (en-US)",

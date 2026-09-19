@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { FolderInput, MoreHorizontal, Play, Plus, Rocket } from "lucide-react";
+import { Copy, FolderInput, MoreHorizontal, Play, Plus, Rocket, Search, X } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
-import type { ProjectSummary } from "@/lib/types";
+import type { Project, ProjectSummary } from "@/lib/types";
+import { newId } from "@/lib/types";
 import {
   deleteProject,
   importVsCodeWorkspace,
   launchMany,
   launchProject,
   listProjects,
+  loadProject,
+  saveProject,
 } from "@/lib/tauriApi";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +48,7 @@ interface Props {
 export function ProjectListPage({ onEdit }: Props) {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null);
@@ -53,6 +58,43 @@ export function ProjectListPage({ onEdit }: Props) {
   useEffect(() => {
     refresh();
   }, []);
+
+  async function handleDuplicate(id: string) {
+    setBusy(true);
+    try {
+      const original = await loadProject(id);
+      const now = new Date().toISOString();
+      const newFolders = original.folders.map((f) => ({ ...f, id: newId() }));
+      const folderIdMap = new Map<string, string>();
+      original.folders.forEach((f, i) => {
+        folderIdMap.set(f.id, newFolders[i].id);
+      });
+      const duplicated: Project = {
+        ...original,
+        id: newId(),
+        name: `${original.name} (${t("common.copy")})`,
+        folders: newFolders,
+        terminal_groups: original.terminal_groups.map((g) => ({
+          ...g,
+          id: newId(),
+          terminals: g.terminals.map((term) => ({
+            ...term,
+            id: newId(),
+            folder_id: folderIdMap.get(term.folder_id) ?? (newFolders[0]?.id || ""),
+          })),
+        })),
+        created_at: now,
+        updated_at: now,
+      };
+      await saveProject(duplicated);
+      toast.success(t("projects.toasts.duplicated", { name: duplicated.name }));
+      refresh();
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -128,20 +170,50 @@ export function ProjectListPage({ onEdit }: Props) {
     }
   }
 
+  const query = search.toLowerCase().trim();
+  const filteredProjects = query
+    ? projects.filter((p) => p.name.toLowerCase().includes(query))
+    : projects;
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6 pb-24">
-      <div className="flex items-center justify-between">
-        <h1 className="text-sm font-medium text-muted-foreground">{t("projects.title")}</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleImport} disabled={busy}>
-            <FolderInput className="size-3.5" />
-            {t("projects.importWorkspace")}
-          </Button>
-          <Button size="sm" onClick={() => onEdit(null)} disabled={busy}>
-            <Plus className="size-3.5" />
-            {t("projects.newProject")}
-          </Button>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-sm font-medium text-muted-foreground">{t("projects.title")}</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleImport} disabled={busy}>
+              <FolderInput className="size-3.5" />
+              {t("projects.importWorkspace")}
+            </Button>
+            <Button size="sm" onClick={() => onEdit(null)} disabled={busy}>
+              <Plus className="size-3.5" />
+              {t("projects.newProject")}
+            </Button>
+          </div>
         </div>
+
+        {projects.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("projects.searchPlaceholder")}
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setSearch("")}
+                aria-label={t("projects.clearSearch")}
+              >
+                <X className="size-3" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {projects.length === 0 ? (
@@ -150,6 +222,16 @@ export function ProjectListPage({ onEdit }: Props) {
           <p className="text-sm text-muted-foreground">
             {t("projects.emptyDescription")}
           </p>
+        </div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
+          <Search className="size-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {t("projects.noSearchResults", { query: search })}
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => setSearch("")}>
+            {t("projects.clearSearch")}
+          </Button>
         </div>
       ) : (
         <Table>
@@ -164,7 +246,7 @@ export function ProjectListPage({ onEdit }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {projects.map((p) => (
+            {filteredProjects.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>
                   <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggle(p.id)} />
@@ -195,10 +277,14 @@ export function ProjectListPage({ onEdit }: Props) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(p.id)}>
+                        <DropdownMenuItem onSelect={() => onEdit(p.id)}>
                           {t("projects.actions.edit")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" onClick={() => setProjectToDelete(p)}>
+                        <DropdownMenuItem onSelect={() => handleDuplicate(p.id)}>
+                          <Copy className="size-3.5" />
+                          {t("projects.actions.duplicate")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => setProjectToDelete(p)}>
                           {t("projects.actions.delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
