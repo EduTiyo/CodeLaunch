@@ -6,7 +6,9 @@ use codelaunch_core::ide::IdeRegistry;
 use codelaunch_core::launcher;
 use codelaunch_core::model::validation::validate;
 use codelaunch_core::model::{Project, ProjectSummary};
-use codelaunch_core::storage::{default_projects_dir, default_workspaces_dir, FsProjectRepository, ProjectRepository};
+use codelaunch_core::storage::{
+    default_projects_dir, default_workspaces_dir, FsProjectRepository, ProjectRepository,
+};
 use uuid::Uuid;
 
 pub struct AppState {
@@ -46,7 +48,10 @@ pub fn load_project(state: tauri::State<SharedState>, id: Uuid) -> Result<Projec
 }
 
 #[tauri::command]
-pub fn save_project(state: tauri::State<SharedState>, mut project: Project) -> Result<Project, String> {
+pub fn save_project(
+    state: tauri::State<SharedState>,
+    mut project: Project,
+) -> Result<Project, String> {
     if let Err(errors) = validate(&project) {
         let messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
         return Err(messages.join("; "));
@@ -85,7 +90,10 @@ pub fn launch_project(state: tauri::State<SharedState>, id: Uuid) -> Result<(), 
 }
 
 #[tauri::command]
-pub fn launch_many(state: tauri::State<SharedState>, ids: Vec<Uuid>) -> Result<Vec<String>, String> {
+pub fn launch_many(
+    state: tauri::State<SharedState>,
+    ids: Vec<Uuid>,
+) -> Result<Vec<String>, String> {
     let guard = state.lock().unwrap();
     let mut errors = Vec::new();
     for id in ids {

@@ -136,4 +136,3 @@ fn import_legacy_workspace_without_trap_upgrades_to_trap_format_on_render() {
         ]
     );
 }
-
