@@ -6,6 +6,8 @@ import { ProjectEditorPage } from "@/routes/ProjectEditorPage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Header } from "@/components/Header";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
+import { SwipeBackIndicator } from "@/components/SwipeBackIndicator";
+import { useTrackpadBack } from "@/hooks/useTrackpadBack";
 
 export type View =
   | { mode: "list" }
@@ -24,6 +26,11 @@ function AppShell() {
       setView({ mode: "list" });
     }
   }
+
+  const { progress, isTriggered, isSwiping } = useTrackpadBack({
+    onBack: handleBackClick,
+    enabled: isEditing && !showUnsavedDialog,
+  });
 
   function handleConfirmDiscard() {
     setShowUnsavedDialog(false);
@@ -55,6 +62,12 @@ function AppShell() {
         open={showUnsavedDialog}
         onClose={() => setShowUnsavedDialog(false)}
         onConfirm={handleConfirmDiscard}
+      />
+
+      <SwipeBackIndicator
+        progress={progress}
+        isTriggered={isTriggered}
+        isSwiping={isSwiping}
       />
 
       <Toaster />
