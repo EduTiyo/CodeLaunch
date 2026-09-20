@@ -34,6 +34,10 @@ export function importVsCodeWorkspace(path: string): Promise<Project> {
   return invoke("import_vscode_workspace", { path });
 }
 
+export function openTerminalSettings(): Promise<void> {
+  return invoke("open_terminal_settings");
+}
+
 export function detectFolderCommands(path: string): Promise<DetectedCommand[]> {
   return invoke("detect_folder_commands", { path });
 }
@@ -45,5 +49,3 @@ export function setProjectsGroup(ids: string[], group: string | null): Promise<v
 export function renameProjectGroup(oldName: string, newName: string): Promise<void> {
   return invoke("rename_project_group", { oldName, newName });
 }
-
-

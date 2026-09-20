@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { ChevronDown, FolderPlus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, FolderPlus, Sparkles, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DetectedCommand, Folder, IdeKind, Project, Terminal, TerminalGroup } from "@/lib/types";
 import { emptyProject, IDE_LABELS, IDE_OPTIONS, newId } from "@/lib/types";
-import { detectFolderCommands, launchProject, loadProject, previewWorkspace, saveProject } from "@/lib/tauriApi";
+import { detectFolderCommands, launchProject, loadProject, openTerminalSettings, previewWorkspace, saveProject } from "@/lib/tauriApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,8 @@ function sanitizeProject(p: Project): Project {
     })),
   };
 }
+
+const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
 
 export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
   const { t } = useTranslation();
@@ -353,6 +355,14 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
     }
   }
 
+  async function handleActivateTerminal() {
+    try {
+      await openTerminalSettings();
+    } catch (e) {
+      toast.error(String(e));
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 pb-28 pt-6">
       <div className="flex flex-col gap-4">
@@ -377,7 +387,7 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t("editor.ide")}</Label>
+            <Label>{t("editor.openWith")}</Label>
             <Select
               value={project.ide}
               onValueChange={(ide: IdeKind) => update({ ide })}
@@ -396,6 +406,23 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{t("editor.comingSoon")}</p>
+        {project.ide === "terminal" && isMac && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 text-xs">
+            <span className="text-muted-foreground">
+              {t("editor.terminalMacNotice")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 gap-1.5 text-xs"
+              onClick={handleActivateTerminal}
+            >
+              <ExternalLink className="size-3" />
+              {t("editor.activateTerminal")}
+            </Button>
+          </div>
+        )}
       </div>
 
       <section className="space-y-3">
@@ -475,7 +502,7 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
       <section>
         <Button variant="ghost" size="sm" onClick={handlePreview}>
           <ChevronDown className="size-3.5" />
-          {t("editor.viewJson")}
+          {project.ide === "terminal" ? t("editor.viewScript") : t("editor.viewJson")}
         </Button>
         {preview && (
           <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-muted p-3 font-mono text-xs">

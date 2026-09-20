@@ -445,7 +445,7 @@ export function ProjectListPage({ onEdit }: Props) {
           <TableRow>
             <TableHead className="w-8" />
             <TableHead>{t("projects.table.name")}</TableHead>
-            <TableHead>{t("projects.table.ide")}</TableHead>
+            <TableHead>{t("projects.table.openWith")}</TableHead>
             <TableHead>{t("projects.table.folders")}</TableHead>
             <TableHead>{t("projects.table.terminals")}</TableHead>
             <TableHead className="w-32 text-right" />

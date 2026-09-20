@@ -2,8 +2,8 @@ mod commands;
 
 use commands::{
     build_state, delete_project, detect_folder_commands, import_vscode_workspace, launch_many,
-    launch_project, list_projects, load_project, preview_workspace, rename_project_group,
-    save_project, set_projects_group,
+    launch_project, list_projects, load_project, open_terminal_settings, preview_workspace,
+    rename_project_group, save_project, set_projects_group,
 };
 
 #[cfg(target_os = "macos")]
@@ -55,6 +55,7 @@ pub fn run() {
             launch_project,
             launch_many,
             import_vscode_workspace,
+            open_terminal_settings,
             detect_folder_commands,
             set_projects_group,
             rename_project_group,

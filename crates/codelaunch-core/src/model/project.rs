@@ -147,6 +147,7 @@ pub enum IdeKind {
     Cursor,
     Vscodium,
     Windsurf,
+    Terminal,
 }
 
 impl IdeKind {
@@ -156,6 +157,7 @@ impl IdeKind {
             Self::Cursor => "cursor",
             Self::Vscodium => "codium",
             Self::Windsurf => "windsurf",
+            Self::Terminal => "terminal",
         }
     }
 
@@ -165,6 +167,7 @@ impl IdeKind {
             Self::Cursor => "Cursor",
             Self::Vscodium => "VSCodium",
             Self::Windsurf => "Windsurf",
+            Self::Terminal => "Terminal",
         }
     }
 }
@@ -186,6 +189,7 @@ mod tests {
             (IdeKind::Cursor, "\"cursor\""),
             (IdeKind::Vscodium, "\"vscodium\""),
             (IdeKind::Windsurf, "\"windsurf\""),
+            (IdeKind::Terminal, "\"terminal\""),
         ] {
             let serialized = serde_json::to_string(&kind).unwrap();
             assert_eq!(serialized, expected);
