@@ -253,7 +253,7 @@ pub fn generate_preview(project: &Project) -> Result<String> {
     preview.push_str(
         "# ==============================================================================\n",
     );
-    preview.push_str("# [macOS] (launch.command) — 1 janela por grupo com abas (Terminal.app)\n");
+    preview.push_str("# [macOS] (launch.command) — 1 janela por grupo com abas (iTerm2 ou Terminal.app)\n");
     preview.push_str(
         "# ==============================================================================\n\n",
     );
@@ -342,7 +342,9 @@ fn generate_macos_terminal_script(term: &Terminal, folder: &Folder) -> String {
     let title = term.label.replace('"', "\\\"");
 
     let mut script = String::new();
-    script.push_str("#!/usr/bin/env bash\n");
+    script.push_str("#!/bin/zsh\n");
+    script.push_str("[ -f \"$HOME/.zprofile\" ] && source \"$HOME/.zprofile\" 2>/dev/null\n");
+    script.push_str("[ -f \"$HOME/.zshrc\" ] && source \"$HOME/.zshrc\" 2>/dev/null\n");
     script.push_str(&format!("cd \"{}\" || exit 1\n", folder_path));
     script.push_str(&format!("printf '\\033]0;%s\\007' \"{}\"\n", title));
 
@@ -374,55 +376,119 @@ fn generate_macos_master_script(
         "# CodeLaunch Terminal Launcher for {}\n",
         project.name
     ));
-    script.push_str("# Para permitir a abertura automatica de abas via Cmd+T no macOS:\n");
-    script.push_str("# open \"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility\"\n\n");
+    script.push_str("# Auto-detects iTerm2 vs Terminal.app\n\n");
+
+    script.push_str(r#"if [ -d "/Applications/iTerm.app" ] || [ -d "$HOME/Applications/iTerm.app" ] || osascript -e 'id of application "iTerm"' >/dev/null 2>&1; then
+    USE_ITERM=1
+else
+    USE_ITERM=0
+fi
+
+if [ "$USE_ITERM" -eq 1 ]; then
+osascript << 'APPLESCRIPT'
+tell application "iTerm"
+    activate
+"#);
 
     if grouped_scripts.is_empty() {
         if project.folders.is_empty() {
-            script.push_str("osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n    do script \"cd '$PWD' && exec $SHELL -l\"\nend tell\nAPPLESCRIPT\n");
+            script.push_str("    set newWindow to (create window with default profile)\n");
         } else {
-            script.push_str(
-                "osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n",
-            );
             for (idx, folder) in project.folders.iter().enumerate() {
                 let path = resolve_folder_path(folder);
+                let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
+                if idx == 0 {
+                    script.push_str("    set newWindow to (create window with default profile)\n");
+                    script.push_str(&format!(
+                        "    tell current session of newWindow\n        write text \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end tell\n",
+                        escaped_path
+                    ));
+                } else {
+                    script.push_str(&format!(
+                        "    tell newWindow\n        set newTab to (create tab with default profile)\n        tell current session of newTab\n            write text \"cd \\\"{}\\\" && exec $SHELL -l\"\n        end tell\n    end tell\n",
+                        escaped_path
+                    ));
+                }
+            }
+        }
+    } else {
+        for (g_idx, (_group, terms)) in grouped_scripts.iter().enumerate() {
+            let win_var = format!("win_g{}", g_idx + 1);
+            script.push_str(&format!(
+                "    set {} to (create window with default profile)\n",
+                win_var
+            ));
+            for (t_idx, (_term, script_path)) in terms.iter().enumerate() {
+                let path_str = script_path.display().to_string();
+                let escaped_path = path_str.replace('\\', "\\\\").replace('"', "\\\"");
+                if t_idx == 0 {
+                    script.push_str(&format!(
+                        "    tell current session of {}\n        write text \"exec \\\"{}\\\"\"\n    end tell\n",
+                        win_var, escaped_path
+                    ));
+                } else {
+                    let tab_var = format!("tab_g{}_t{}", g_idx + 1, t_idx + 1);
+                    script.push_str(&format!(
+                        "    tell {}\n        set {} to (create tab with default profile)\n        tell current session of {}\n            write text \"exec \\\"{}\\\"\"\n        end tell\n    end tell\n",
+                        win_var, tab_var, tab_var, escaped_path
+                    ));
+                }
+            }
+        }
+    }
+
+    script.push_str("end tell\nAPPLESCRIPT\nelse\n");
+
+    script.push_str("osascript << 'APPLESCRIPT'\nset wasRunning to application \"Terminal\" is running\ntell application \"Terminal\"\n    activate\n    if not wasRunning then\n        repeat 10 times\n            if (count of windows) > 0 then exit repeat\n            delay 0.1\n        end repeat\n    end if\n");
+
+    if grouped_scripts.is_empty() {
+        if project.folders.is_empty() {
+            script.push_str("    if not wasRunning and (count of windows) > 0 then\n        do script \"cd '$PWD' && exec $SHELL -l\" in window 1\n    else\n        do script \"cd '$PWD' && exec $SHELL -l\"\n    end if\n");
+        } else {
+            for (idx, folder) in project.folders.iter().enumerate() {
+                let path = resolve_folder_path(folder);
+                let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
                 if idx == 0 {
                     script.push_str(&format!(
-                        "    do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n",
-                        path
+                        "    if not wasRunning and (count of windows) > 0 then\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in window 1\n    else\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end if\n",
+                        escaped_path, escaped_path
                     ));
                 } else {
                     script.push_str("    delay 0.5\n    try\n        tell application \"System Events\" to tell process \"Terminal\"\n            keystroke \"t\" using {command down}\n        end tell\n        delay 0.5\n");
-                    script.push_str(&format!("        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in selected tab of front window\n    on error\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end try\n", path, path));
+                    script.push_str(&format!("        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in selected tab of front window\n    on error\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end try\n", escaped_path, escaped_path));
                 }
             }
-            script.push_str("end tell\nAPPLESCRIPT\n");
         }
     } else {
-        script
-            .push_str("osascript << 'APPLESCRIPT'\ntell application \"Terminal\"\n    activate\n");
         for (g_idx, (_group, terms)) in grouped_scripts.iter().enumerate() {
             if g_idx > 0 {
                 script.push_str("    delay 0.5\n");
             }
             for (t_idx, (_term, script_path)) in terms.iter().enumerate() {
                 let path_str = script_path.display().to_string();
-                if t_idx == 0 {
-                    // First terminal in group starts a new window in Terminal.app
-                    script.push_str(&format!("    do script \"exec \\\"{}\\\"\"\n", path_str));
+                let escaped_path = path_str.replace('\\', "\\\\").replace('"', "\\\"");
+                if g_idx == 0 && t_idx == 0 {
+                    // First terminal in the first group: reuse startup window if Terminal wasn't running
+                    script.push_str(&format!(
+                        "    if not wasRunning and (count of windows) > 0 then\n        do script \"exec \\\"{}\\\"\" in window 1\n    else\n        do script \"exec \\\"{}\\\"\"\n    end if\n",
+                        escaped_path, escaped_path
+                    ));
+                } else if t_idx == 0 {
+                    // First terminal in subsequent groups starts a new window in Terminal.app
+                    script.push_str(&format!("    do script \"exec \\\"{}\\\"\"\n", escaped_path));
                 } else {
                     // Additional terminals in the same group open as tabs in that window
                     script.push_str("    delay 0.5\n    try\n        tell application \"System Events\" to tell process \"Terminal\"\n            keystroke \"t\" using {command down}\n        end tell\n        delay 0.5\n");
                     script.push_str(&format!(
                         "        do script \"exec \\\"{}\\\"\" in selected tab of front window\n    on error\n        do script \"exec \\\"{}\\\"\"\n    end try\n",
-                        path_str, path_str
+                        escaped_path, escaped_path
                     ));
                 }
             }
         }
-        script.push_str("end tell\nAPPLESCRIPT\n");
     }
 
+    script.push_str("end tell\nAPPLESCRIPT\nfi\n");
     script
 }
 
@@ -432,6 +498,8 @@ fn generate_linux_terminal_script(term: &Terminal, folder: &Folder) -> String {
 
     let mut script = String::new();
     script.push_str("#!/usr/bin/env bash\n");
+    script.push_str("[ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\" 2>/dev/null\n");
+    script.push_str("[ -f \"$HOME/.bashrc\" ] && source \"$HOME/.bashrc\" 2>/dev/null\n");
     script.push_str(&format!("cd \"{}\" || exit 1\n", folder_path));
     script.push_str(&format!("printf '\\033]0;%s\\007' \"{}\"\n", title));
 
@@ -466,12 +534,20 @@ fn generate_linux_master_script(
 
     script.push_str(r#"# Detect installed terminal emulator
 TERMINAL_BIN=""
-for term in gnome-terminal ptyxis konsole xfce4-terminal mate-terminal kitty alacritty x-terminal-emulator xterm; do
-    if command -v "$term" >/dev/null 2>&1; then
-        TERMINAL_BIN="$term"
-        break
-    fi
-done
+if [ -n "$TERMINAL" ] && command -v "$TERMINAL" >/dev/null 2>&1; then
+    TERMINAL_BIN="$TERMINAL"
+elif command -v xdg-terminal-exec >/dev/null 2>&1; then
+    TERMINAL_BIN="xdg-terminal-exec"
+elif command -v x-terminal-emulator >/dev/null 2>&1; then
+    TERMINAL_BIN="x-terminal-emulator"
+else
+    for term in gnome-terminal ptyxis konsole xfce4-terminal mate-terminal kitty alacritty xterm; do
+        if command -v "$term" >/dev/null 2>&1; then
+            TERMINAL_BIN="$term"
+            break
+        fi
+    done
+fi
 "#);
 
     if grouped_scripts.is_empty() {
@@ -726,7 +802,11 @@ mod tests {
         assert!(rendered.entry_path.ends_with("launch.command"));
 
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
-        // First terminal in the group opens the window
+        // iTerm2 branch
+        assert!(master.contains("tell application \"iTerm\"\n    activate"));
+        assert!(master.contains("create window with default profile"));
+        assert!(master.contains("create tab with default profile"));
+        // Terminal.app fallback branch
         assert!(master.contains("tell application \"Terminal\"\n    activate"));
         assert!(master.contains("do script \"exec"));
         // Second terminal in the same group creates a tab in that window
@@ -763,7 +843,7 @@ mod tests {
         assert_eq!(rendered.generated_files.len(), 4);
 
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
-        // Both groups have a second terminal added as a tab via Cmd+T keystroke
+        // Both groups have a second terminal added as a tab via Cmd+T keystroke in Terminal.app
         let tab_adds = master
             .matches("keystroke \"t\" using {command down}")
             .count();
@@ -771,6 +851,11 @@ mod tests {
             tab_adds, 2,
             "Each group's second terminal should be added as a tab"
         );
+        // Both groups have a second terminal added as a tab in iTerm2
+        let iterm_tabs = master
+            .matches("create tab with default profile")
+            .count();
+        assert_eq!(iterm_tabs, 2);
     }
 
     #[test]
@@ -780,8 +865,14 @@ mod tests {
         let rendered = render_for_os(&project, tmp.path(), TargetOs::Linux).unwrap();
 
         assert_eq!(rendered.generated_files.len(), 2);
+        assert!(rendered.entry_path.ends_with("launch.sh"));
+
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
         assert!(master.contains("TERMINAL_BIN"));
+        // Modern detection: $TERMINAL, xdg-terminal-exec, x-terminal-emulator
+        assert!(master.contains("$TERMINAL"));
+        assert!(master.contains("xdg-terminal-exec"));
+        assert!(master.contains("x-terminal-emulator"));
         // GNOME / Ptyxis / MATE
         assert!(master.contains("--window --title=\"API Server\""));
         assert!(master.contains("--tab --title=\"Database Migrations\""));
@@ -792,6 +883,18 @@ mod tests {
         // XFCE
         assert!(master.contains("--window --title=\"API Server\" -e"));
         assert!(master.contains("--tab --title=\"Database Migrations\" -e"));
+
+        // Verify Linux terminal scripts load user environment (~/.profile and ~/.bashrc)
+        let term1_content = fs::read_to_string(&rendered.generated_files[0]).unwrap();
+        assert!(term1_content.contains("#!/usr/bin/env bash"));
+        assert!(term1_content.contains("[ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\""));
+        assert!(term1_content.contains("[ -f \"$HOME/.bashrc\" ] && source \"$HOME/.bashrc\""));
+        assert!(term1_content.contains("cd \"/path/to/backend\""));
+        assert!(term1_content.contains("trap : INT; npm run dev; exec \"${SHELL:-bash}\" -l"));
+
+        let term2_content = fs::read_to_string(&rendered.generated_files[1]).unwrap();
+        assert!(term2_content.contains("cargo run --bin migrate"));
+        assert!(!term2_content.contains("exec \"${SHELL:-bash}\" -l"));
     }
 
     #[test]
@@ -801,6 +904,8 @@ mod tests {
         let rendered = render_for_os(&project, tmp.path(), TargetOs::Windows).unwrap();
 
         assert_eq!(rendered.generated_files.len(), 2);
+        assert!(rendered.entry_path.ends_with("launch.bat"));
+
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
         assert!(master.contains("where wt.exe"));
         assert!(master.contains("-w new new-tab --title \"API Server\""));
@@ -810,6 +915,20 @@ mod tests {
         // Fallback
         assert!(master.contains("start \"API Server\" cmd /k call"));
         assert!(master.contains("start \"Database Migrations\" cmd /c call"));
+
+        // Verify Windows individual terminal scripts
+        let term1_content = fs::read_to_string(&rendered.generated_files[0]).unwrap();
+        assert!(term1_content.contains("@echo off"));
+        assert!(term1_content.contains("title API Server"));
+        assert!(term1_content.contains("cd /d \"/path/to/backend\""));
+        assert!(term1_content.contains("call npm run dev"));
+        assert!(!term1_content.contains("exit"));
+
+        let term2_content = fs::read_to_string(&rendered.generated_files[1]).unwrap();
+        assert!(term2_content.contains("@echo off"));
+        assert!(term2_content.contains("title Database Migrations"));
+        assert!(term2_content.contains("call cargo run --bin migrate"));
+        assert!(term2_content.contains("exit"));
     }
 
     #[test]
