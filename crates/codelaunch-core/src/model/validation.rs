@@ -6,8 +6,12 @@ use super::project::Project;
 pub enum ValidationError {
     #[error("project name must not be empty")]
     EmptyName,
+    #[error("folder name must not be empty")]
+    EmptyFolderName,
     #[error("duplicate folder name: {0}")]
     DuplicateFolderName(String),
+    #[error("terminal label must not be empty")]
+    EmptyTerminalLabel,
     #[error("terminal {0} references a folder that does not exist in this project")]
     DanglingFolderReference(String),
     #[error("duplicate terminal label: {0} (VS Code task labels must be unique project-wide)")]
@@ -26,7 +30,9 @@ pub fn validate(project: &Project) -> Result<(), Vec<ValidationError>> {
 
     let mut seen_names = std::collections::HashSet::new();
     for folder in &project.folders {
-        if !seen_names.insert(&folder.name) {
+        if folder.name.trim().is_empty() {
+            errors.push(ValidationError::EmptyFolderName);
+        } else if !seen_names.insert(&folder.name) {
             errors.push(ValidationError::DuplicateFolderName(folder.name.clone()));
         }
     }
@@ -34,13 +40,16 @@ pub fn validate(project: &Project) -> Result<(), Vec<ValidationError>> {
     let mut seen_labels = std::collections::HashSet::new();
     for group in &project.terminal_groups {
         for terminal in &group.terminals {
-            if project.find_folder(terminal.folder_id).is_none() {
-                errors.push(ValidationError::DanglingFolderReference(
+            if terminal.label.trim().is_empty() {
+                errors.push(ValidationError::EmptyTerminalLabel);
+            } else if !seen_labels.insert(&terminal.label) {
+                errors.push(ValidationError::DuplicateTerminalLabel(
                     terminal.label.clone(),
                 ));
             }
-            if !seen_labels.insert(&terminal.label) {
-                errors.push(ValidationError::DuplicateTerminalLabel(
+
+            if project.find_folder(terminal.folder_id).is_none() {
+                errors.push(ValidationError::DanglingFolderReference(
                     terminal.label.clone(),
                 ));
             }
@@ -117,5 +126,28 @@ mod tests {
         project.terminal_groups.push(group);
 
         assert!(validate(&project).is_ok());
+    }
+
+    #[test]
+    fn rejects_empty_folder_name() {
+        let mut project = Project::new("Test", IdeKind::VsCode);
+        project.folders.push(Folder::new("   ", "/tmp/backend"));
+        let errors = validate(&project).unwrap_err();
+        assert_eq!(errors, vec![ValidationError::EmptyFolderName]);
+    }
+
+    #[test]
+    fn rejects_empty_terminal_label() {
+        let mut project = Project::new("Test", IdeKind::VsCode);
+        let folder = Folder::new("BACKEND", "/tmp/backend");
+        let folder_id = folder.id;
+        project.folders.push(folder);
+
+        let mut group = TerminalGroup::new("group1", 0);
+        group.terminals.push(Terminal::new("   ", folder_id, 0));
+        project.terminal_groups.push(group);
+
+        let errors = validate(&project).unwrap_err();
+        assert_eq!(errors, vec![ValidationError::EmptyTerminalLabel]);
     }
 }
