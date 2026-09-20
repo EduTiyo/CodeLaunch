@@ -58,8 +58,10 @@ pub fn render_for_os(
     output_dir: &Path,
     os: TargetOs,
 ) -> Result<RenderedWorkspace> {
-    let slug = slugify(&project.name);
-    let project_dir = output_dir.join(format!("{slug}-terminal"));
+    let project_dir = output_dir.join(project.id.to_string());
+    if project_dir.exists() {
+        let _ = fs::remove_dir_all(&project_dir);
+    }
     fs::create_dir_all(&project_dir)?;
 
     let mut generated_files = Vec::new();
@@ -347,9 +349,6 @@ fn generate_macos_terminal_script(term: &Terminal, folder: &Folder) -> String {
     script.push_str("#!/bin/zsh\n");
     script.push_str("[ -f \"$HOME/.zprofile\" ] && source \"$HOME/.zprofile\" 2>/dev/null\n");
     script.push_str("[ -f \"$HOME/.zshrc\" ] && source \"$HOME/.zshrc\" 2>/dev/null\n");
-    script.push_str("#!/bin/zsh\n");
-    script.push_str("[ -f \"$HOME/.zprofile\" ] && source \"$HOME/.zprofile\" 2>/dev/null\n");
-    script.push_str("[ -f \"$HOME/.zshrc\" ] && source \"$HOME/.zshrc\" 2>/dev/null\n");
     script.push_str(&format!("cd \"{}\" || exit 1\n", folder_path));
     script.push_str(&format!("printf '\\033]0;%s\\007' \"{}\"\n", title));
 
@@ -508,8 +507,6 @@ fn generate_linux_terminal_script(term: &Terminal, folder: &Folder) -> String {
 
     let mut script = String::new();
     script.push_str("#!/usr/bin/env bash\n");
-    script.push_str("[ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\" 2>/dev/null\n");
-    script.push_str("[ -f \"$HOME/.bashrc\" ] && source \"$HOME/.bashrc\" 2>/dev/null\n");
     script.push_str("[ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\" 2>/dev/null\n");
     script.push_str("[ -f \"$HOME/.bashrc\" ] && source \"$HOME/.bashrc\" 2>/dev/null\n");
     script.push_str(&format!("cd \"{}\" || exit 1\n", folder_path));
@@ -821,11 +818,6 @@ mod tests {
         assert!(master.contains("create window with default profile"));
         assert!(master.contains("create tab with default profile"));
         // Terminal.app fallback branch
-        // iTerm2 branch
-        assert!(master.contains("tell application \"iTerm\"\n    activate"));
-        assert!(master.contains("create window with default profile"));
-        assert!(master.contains("create tab with default profile"));
-        // Terminal.app fallback branch
         assert!(master.contains("tell application \"Terminal\"\n    activate"));
         assert!(master.contains("do script \"exec"));
         // Second terminal in the same group creates a tab in that window
@@ -863,7 +855,6 @@ mod tests {
 
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
         // Both groups have a second terminal added as a tab via Cmd+T keystroke in Terminal.app
-        // Both groups have a second terminal added as a tab via Cmd+T keystroke in Terminal.app
         let tab_adds = master
             .matches("keystroke \"t\" using {command down}")
             .count();
@@ -885,14 +876,8 @@ mod tests {
         assert_eq!(rendered.generated_files.len(), 2);
         assert!(rendered.entry_path.ends_with("launch.sh"));
 
-        assert!(rendered.entry_path.ends_with("launch.sh"));
-
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
         assert!(master.contains("TERMINAL_BIN"));
-        // Modern detection: $TERMINAL, xdg-terminal-exec, x-terminal-emulator
-        assert!(master.contains("$TERMINAL"));
-        assert!(master.contains("xdg-terminal-exec"));
-        assert!(master.contains("x-terminal-emulator"));
         // Modern detection: $TERMINAL, xdg-terminal-exec, x-terminal-emulator
         assert!(master.contains("$TERMINAL"));
         assert!(master.contains("xdg-terminal-exec"));
@@ -919,18 +904,6 @@ mod tests {
         let term2_content = fs::read_to_string(&rendered.generated_files[1]).unwrap();
         assert!(term2_content.contains("cargo run --bin migrate"));
         assert!(!term2_content.contains("exec \"${SHELL:-bash}\" -l"));
-
-        // Verify Linux terminal scripts load user environment (~/.profile and ~/.bashrc)
-        let term1_content = fs::read_to_string(&rendered.generated_files[0]).unwrap();
-        assert!(term1_content.contains("#!/usr/bin/env bash"));
-        assert!(term1_content.contains("[ -f \"$HOME/.profile\" ] && source \"$HOME/.profile\""));
-        assert!(term1_content.contains("[ -f \"$HOME/.bashrc\" ] && source \"$HOME/.bashrc\""));
-        assert!(term1_content.contains("cd \"/path/to/backend\""));
-        assert!(term1_content.contains("trap : INT; npm run dev; exec \"${SHELL:-bash}\" -l"));
-
-        let term2_content = fs::read_to_string(&rendered.generated_files[1]).unwrap();
-        assert!(term2_content.contains("cargo run --bin migrate"));
-        assert!(!term2_content.contains("exec \"${SHELL:-bash}\" -l"));
     }
 
     #[test]
@@ -942,8 +915,6 @@ mod tests {
         assert_eq!(rendered.generated_files.len(), 2);
         assert!(rendered.entry_path.ends_with("launch.bat"));
 
-        assert!(rendered.entry_path.ends_with("launch.bat"));
-
         let master = fs::read_to_string(&rendered.entry_path).unwrap();
         assert!(master.contains("where wt.exe"));
         assert!(master.contains("-w new new-tab --title \"API Server\""));
@@ -953,20 +924,6 @@ mod tests {
         // Fallback
         assert!(master.contains("start \"API Server\" cmd /k call"));
         assert!(master.contains("start \"Database Migrations\" cmd /c call"));
-
-        // Verify Windows individual terminal scripts
-        let term1_content = fs::read_to_string(&rendered.generated_files[0]).unwrap();
-        assert!(term1_content.contains("@echo off"));
-        assert!(term1_content.contains("title API Server"));
-        assert!(term1_content.contains("cd /d \"/path/to/backend\""));
-        assert!(term1_content.contains("call npm run dev"));
-        assert!(!term1_content.contains("exit"));
-
-        let term2_content = fs::read_to_string(&rendered.generated_files[1]).unwrap();
-        assert!(term2_content.contains("@echo off"));
-        assert!(term2_content.contains("title Database Migrations"));
-        assert!(term2_content.contains("call cargo run --bin migrate"));
-        assert!(term2_content.contains("exit"));
 
         // Verify Windows individual terminal scripts
         let term1_content = fs::read_to_string(&rendered.generated_files[0]).unwrap();
@@ -994,5 +951,26 @@ mod tests {
         assert!(preview.contains("launch.command"));
         assert!(preview.contains("launch.sh"));
         assert!(preview.contains("launch.bat"));
+    }
+
+    #[test]
+    fn render_isolates_terminal_workspaces_by_project_id_preventing_collisions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project1 = create_test_project();
+        let project2 = create_test_project();
+        assert_ne!(project1.id, project2.id);
+
+        let rendered1 = render_for_os(&project1, tmp.path(), TargetOs::MacOs).unwrap();
+        let rendered2 = render_for_os(&project2, tmp.path(), TargetOs::MacOs).unwrap();
+
+        assert_ne!(rendered1.entry_path, rendered2.entry_path);
+        assert!(rendered1.entry_path.is_file());
+        assert!(rendered2.entry_path.is_file());
+        assert!(rendered1
+            .entry_path
+            .starts_with(tmp.path().join(project1.id.to_string())));
+        assert!(rendered2
+            .entry_path
+            .starts_with(tmp.path().join(project2.id.to_string())));
     }
 }
