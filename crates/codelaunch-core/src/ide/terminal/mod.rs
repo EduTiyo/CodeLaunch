@@ -383,7 +383,8 @@ fn generate_macos_master_script(
     ));
     script.push_str("# Auto-detects iTerm2 vs Terminal.app\n\n");
 
-    script.push_str(r#"if [ -d "/Applications/iTerm.app" ] || [ -d "$HOME/Applications/iTerm.app" ] || osascript -e 'id of application "iTerm"' >/dev/null 2>&1; then
+    script.push_str(
+        r#"if [ -d "/Applications/iTerm.app" ] || [ -d "$HOME/Applications/iTerm.app" ] || osascript -e 'id of application "iTerm"' >/dev/null 2>&1; then
     USE_ITERM=1
 else
     USE_ITERM=0
@@ -393,86 +394,19 @@ if [ "$USE_ITERM" -eq 1 ]; then
 osascript << 'APPLESCRIPT'
 tell application "iTerm"
     activate
-"#);
-    script.push_str("# Auto-detects iTerm2 vs Terminal.app\n\n");
-
-    script.push_str(r#"if [ -d "/Applications/iTerm.app" ] || [ -d "$HOME/Applications/iTerm.app" ] || osascript -e 'id of application "iTerm"' >/dev/null 2>&1; then
-    USE_ITERM=1
-else
-    USE_ITERM=0
-fi
-
-if [ "$USE_ITERM" -eq 1 ]; then
-osascript << 'APPLESCRIPT'
-tell application "iTerm"
-    activate
-"#);
+"#,
+    );
 
     if grouped_scripts.is_empty() {
         if project.folders.is_empty() {
-            script.push_str("    set newWindow to (create window with default profile)\n");
             script.push_str("    set newWindow to (create window with default profile)\n");
         } else {
             for (idx, folder) in project.folders.iter().enumerate() {
                 let path = resolve_folder_path(folder);
                 let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
-                let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
                 if idx == 0 {
                     script.push_str("    set newWindow to (create window with default profile)\n");
-                    script.push_str("    set newWindow to (create window with default profile)\n");
                     script.push_str(&format!(
-                        "    tell current session of newWindow\n        write text \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end tell\n",
-                        escaped_path
-                    ));
-                } else {
-                    script.push_str(&format!(
-                        "    tell newWindow\n        set newTab to (create tab with default profile)\n        tell current session of newTab\n            write text \"cd \\\"{}\\\" && exec $SHELL -l\"\n        end tell\n    end tell\n",
-                        escaped_path
-                    ));
-                }
-            }
-        }
-    } else {
-        for (g_idx, (_group, terms)) in grouped_scripts.iter().enumerate() {
-            let win_var = format!("win_g{}", g_idx + 1);
-            script.push_str(&format!(
-                "    set {} to (create window with default profile)\n",
-                win_var
-            ));
-            for (t_idx, (_term, script_path)) in terms.iter().enumerate() {
-                let path_str = script_path.display().to_string();
-                let escaped_path = path_str.replace('\\', "\\\\").replace('"', "\\\"");
-                if t_idx == 0 {
-                    script.push_str(&format!(
-                        "    tell current session of {}\n        write text \"exec \\\"{}\\\"\"\n    end tell\n",
-                        win_var, escaped_path
-                    ));
-                } else {
-                    let tab_var = format!("tab_g{}_t{}", g_idx + 1, t_idx + 1);
-                    script.push_str(&format!(
-                        "    tell {}\n        set {} to (create tab with default profile)\n        tell current session of {}\n            write text \"exec \\\"{}\\\"\"\n        end tell\n    end tell\n",
-                        win_var, tab_var, tab_var, escaped_path
-                    ));
-                }
-            }
-        }
-    }
-
-    script.push_str("end tell\nAPPLESCRIPT\nelse\n");
-
-    script.push_str("osascript << 'APPLESCRIPT'\nset wasRunning to application \"Terminal\" is running\ntell application \"Terminal\"\n    activate\n    if not wasRunning then\n        repeat 10 times\n            if (count of windows) > 0 then exit repeat\n            delay 0.1\n        end repeat\n    end if\n");
-
-    if grouped_scripts.is_empty() {
-        if project.folders.is_empty() {
-            script.push_str("    if not wasRunning and (count of windows) > 0 then\n        do script \"cd '$PWD' && exec $SHELL -l\" in window 1\n    else\n        do script \"cd '$PWD' && exec $SHELL -l\"\n    end if\n");
-        } else {
-            for (idx, folder) in project.folders.iter().enumerate() {
-                let path = resolve_folder_path(folder);
-                let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
-                if idx == 0 {
-                    script.push_str(&format!(
-                        "    if not wasRunning and (count of windows) > 0 then\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in window 1\n    else\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end if\n",
-                        escaped_path, escaped_path
                         "    tell current session of newWindow\n        write text \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end tell\n",
                         escaped_path
                     ));
@@ -528,7 +462,6 @@ tell application "iTerm"
                     ));
                 } else {
                     script.push_str("    delay 0.5\n    try\n        tell application \"System Events\" to tell process \"Terminal\"\n            keystroke \"t\" using {command down}\n        end tell\n        delay 0.5\n");
-                    script.push_str(&format!("        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in selected tab of front window\n    on error\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end try\n", escaped_path, escaped_path));
                     script.push_str(&format!("        do script \"cd \\\"{}\\\" && exec $SHELL -l\" in selected tab of front window\n    on error\n        do script \"cd \\\"{}\\\" && exec $SHELL -l\"\n    end try\n", escaped_path, escaped_path));
                 }
             }
@@ -559,14 +492,12 @@ tell application "iTerm"
                     script.push_str(&format!(
                         "        do script \"exec \\\"{}\\\"\" in selected tab of front window\n    on error\n        do script \"exec \\\"{}\\\"\"\n    end try\n",
                         escaped_path, escaped_path
-                        escaped_path, escaped_path
                     ));
                 }
             }
         }
     }
 
-    script.push_str("end tell\nAPPLESCRIPT\nfi\n");
     script.push_str("end tell\nAPPLESCRIPT\nfi\n");
     script
 }
