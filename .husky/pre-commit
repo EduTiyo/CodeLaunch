@@ -1,0 +1,8 @@
+# Carrega o ambiente do Cargo/Rust para GUIs como o VS Code
+if [ -f "$HOME/.cargo/env" ]; then
+  . "$HOME/.cargo/env"
+fi
+export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+cargo fmt --all
+cargo test
