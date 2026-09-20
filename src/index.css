@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+html,
+body,
+#root {
+  overscroll-behavior-x: none;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
