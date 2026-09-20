@@ -43,20 +43,66 @@ impl FsProjectRepository {
     }
 }
 
+#[derive(serde::Deserialize)]
+struct ProjectListEntry {
+    id: Uuid,
+    name: String,
+    #[serde(default)]
+    group: Option<String>,
+    ide: crate::model::IdeKind,
+    #[serde(default)]
+    folders: Vec<serde::de::IgnoredAny>,
+    #[serde(default)]
+    terminal_groups: Vec<serde::de::IgnoredAny>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+}
+
 impl ProjectRepository for FsProjectRepository {
     fn list(&self) -> Result<Vec<ProjectSummary>> {
         let mut summaries = Vec::new();
         for entry in fs::read_dir(&self.base_dir)? {
-            let entry = entry?;
+            let Ok(entry) = entry else {
+                continue;
+            };
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) != Some("json") {
                 continue;
             }
-            let raw = fs::read_to_string(&path)?;
-            let value: serde_json::Value = serde_json::from_str(&raw)?;
+            let raw = match fs::read_to_string(&path) {
+                Ok(content) => content,
+                Err(err) => {
+                    eprintln!("Failed to read project file {}: {}", path.display(), err);
+                    continue;
+                }
+            };
+            let value: serde_json::Value = match serde_json::from_str(&raw) {
+                Ok(val) => val,
+                Err(err) => {
+                    eprintln!("Failed to parse JSON in {}: {}", path.display(), err);
+                    continue;
+                }
+            };
             let value = migrate_schema(value);
-            let project: Project = serde_json::from_value(value)?;
-            summaries.push(ProjectSummary::from(&project));
+            match serde_json::from_value::<ProjectListEntry>(value) {
+                Ok(entry) => {
+                    summaries.push(ProjectSummary {
+                        id: entry.id,
+                        name: entry.name,
+                        group: entry.group,
+                        ide: entry.ide,
+                        folder_count: entry.folders.len(),
+                        terminal_group_count: entry.terminal_groups.len(),
+                        updated_at: entry.updated_at,
+                    });
+                }
+                Err(err) => {
+                    eprintln!(
+                        "Failed to deserialize project summary in {}: {}",
+                        path.display(),
+                        err
+                    );
+                }
+            }
         }
         summaries.sort_by_key(|s| std::cmp::Reverse(s.updated_at));
         Ok(summaries)
@@ -75,8 +121,16 @@ impl ProjectRepository for FsProjectRepository {
 
     fn save(&self, project: &Project) -> Result<()> {
         let path = self.path_for(project.id);
+        let tmp_path = self.base_dir.join(format!("{}.json.tmp", project.id));
         let json = serde_json::to_string_pretty(project)?;
-        fs::write(path, json)?;
+        if let Err(err) = fs::write(&tmp_path, json) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(err.into());
+        }
+        if let Err(err) = fs::rename(&tmp_path, &path) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(err.into());
+        }
         Ok(())
     }
 
@@ -84,6 +138,10 @@ impl ProjectRepository for FsProjectRepository {
         let path = self.path_for(id);
         if path.exists() {
             fs::remove_file(path)?;
+        }
+        let tmp_path = self.base_dir.join(format!("{id}.json.tmp"));
+        if tmp_path.exists() {
+            let _ = fs::remove_file(tmp_path);
         }
         Ok(())
     }
@@ -112,9 +170,47 @@ mod tests {
         let summaries = repo.list().unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, project.id);
+        assert_eq!(summaries[0].folder_count, 0);
+        assert_eq!(summaries[0].terminal_group_count, 0);
 
         repo.delete(project.id).unwrap();
         assert!(repo.load(project.id).is_err());
+    }
+
+    #[test]
+    fn save_is_atomic_and_cleans_up_tmp_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = FsProjectRepository::new(tmp.path()).unwrap();
+
+        let project = Project::new("Atomic Project", IdeKind::VsCode);
+        repo.save(&project).unwrap();
+
+        let final_path = tmp.path().join(format!("{}.json", project.id));
+        let tmp_path = tmp.path().join(format!("{}.json.tmp", project.id));
+        assert!(final_path.is_file());
+        assert!(!tmp_path.exists());
+    }
+
+    #[test]
+    fn list_skips_corrupted_json_files_gracefully() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = FsProjectRepository::new(tmp.path()).unwrap();
+
+        let valid_project = Project::new("Healthy Project", IdeKind::VsCode);
+        repo.save(&valid_project).unwrap();
+
+        // Write a corrupt JSON file in the same repository directory
+        let corrupt_path = tmp.path().join("corrupt-uuid.json");
+        fs::write(corrupt_path, "{ broken json content ...").unwrap();
+
+        // Write a non-json file that should also be ignored
+        let text_path = tmp.path().join("notes.txt");
+        fs::write(text_path, "some notes").unwrap();
+
+        let summaries = repo.list().unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].id, valid_project.id);
+        assert_eq!(summaries[0].name, "Healthy Project");
     }
 
     #[test]

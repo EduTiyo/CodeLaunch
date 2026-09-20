@@ -68,7 +68,7 @@ jobs:
         run: npm ci
 
       - name: Build and Publish Tauri Release
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # To enable code signing & notarization, configure the secrets in GitHub and uncomment:
