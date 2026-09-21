@@ -1,6 +1,6 @@
 [package]
 name = "codelaunch"
-version = "0.1.0"
+version = "0.4.0"
 description = "Configure and launch IDE workspaces with integrated terminal splits and startup commands"
 authors = ["Eduardo Tiyo"]
 edition = "2021"

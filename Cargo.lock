@@ -475,7 +475,7 @@ dependencies = [
 
 [[package]]
 name = "codelaunch"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "codelaunch-core",
@@ -490,7 +490,7 @@ dependencies = [
 
 [[package]]
 name = "codelaunch-core"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "chrono",

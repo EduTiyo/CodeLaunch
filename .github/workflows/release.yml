@@ -81,8 +81,8 @@ jobs:
           # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'CodeLaunch v__VERSION__'
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v__VERSION__' }}
+          releaseName: 'CodeLaunch ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v__VERSION__' }}'
           releaseBody: 'See the release assets below to download and install CodeLaunch for your operating system.'
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.releaseDraft || false }}
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
