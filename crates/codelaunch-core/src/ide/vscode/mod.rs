@@ -67,6 +67,20 @@ impl IdeAdapter for VsCodeAdapter {
 
     fn launch_command(&self, workspace: &RenderedWorkspace) -> Command {
         let binary = resolve_cli_path(&self.cli_binary);
+        #[cfg(target_os = "windows")]
+        {
+            let binary_str = binary.to_string_lossy().to_lowercase();
+            if !binary_str.ends_with(".exe") {
+                let mut cmd = Command::new("cmd");
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                cmd.arg("/c")
+                    .arg(&binary)
+                    .arg("--new-window")
+                    .arg(&workspace.entry_path);
+                return cmd;
+            }
+        }
         let mut cmd = Command::new(binary);
         cmd.arg("--new-window").arg(&workspace.entry_path);
         cmd
@@ -85,9 +99,27 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
     // 1. Search in PATH
     if let Some(path_var) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&path_var) {
-            let candidate = dir.join(binary);
-            if candidate.is_file() {
-                return candidate;
+            #[cfg(target_os = "windows")]
+            {
+                // On Windows, do not match extensionless scripts (e.g. `bin/code` shell script).
+                // Search for executable extensions: .exe, .cmd, .bat
+                for ext in &[".exe", ".cmd", ".bat"] {
+                    let candidate = if binary.to_lowercase().ends_with(ext) {
+                        dir.join(binary)
+                    } else {
+                        dir.join(format!("{binary}{ext}"))
+                    };
+                    if candidate.is_file() {
+                        return candidate;
+                    }
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let candidate = dir.join(binary);
+                if candidate.is_file() {
+                    return candidate;
+                }
             }
         }
     }
@@ -104,7 +136,11 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
             #[cfg(target_os = "macos")]
             "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code",
             #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Microsoft VS Code\\Code.exe",
+            #[cfg(target_os = "windows")]
             "C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe",
             #[cfg(target_os = "windows")]
             "C:\\Program Files (x86)\\Microsoft VS Code\\bin\\code.cmd",
             #[cfg(target_os = "linux")]
@@ -123,6 +159,8 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
             "/Applications/Cursor.app/Contents/Resources/app/bin/cursor",
             #[cfg(target_os = "macos")]
             "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Cursor\\Cursor.exe",
             #[cfg(target_os = "windows")]
             "C:\\Program Files\\Cursor\\bin\\cursor.cmd",
             #[cfg(target_os = "windows")]
@@ -144,6 +182,8 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
             #[cfg(target_os = "macos")]
             "/Applications/VSCodium - Insiders.app/Contents/Resources/app/bin/codium",
             #[cfg(target_os = "windows")]
+            "C:\\Program Files\\VSCodium\\VSCodium.exe",
+            #[cfg(target_os = "windows")]
             "C:\\Program Files\\VSCodium\\bin\\codium.cmd",
             #[cfg(target_os = "linux")]
             "/usr/bin/codium",
@@ -161,6 +201,8 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
             "/Applications/Windsurf.app/Contents/Resources/app/bin/windsurf",
             #[cfg(target_os = "macos")]
             "/Applications/Windsurf.app/Contents/MacOS/Windsurf",
+            #[cfg(target_os = "windows")]
+            "C:\\Program Files\\Windsurf\\Windsurf.exe",
             #[cfg(target_os = "windows")]
             "C:\\Program Files\\Windsurf\\bin\\windsurf.cmd",
             #[cfg(target_os = "linux")]
@@ -221,13 +263,23 @@ pub fn resolve_cli_path(binary: &str) -> PathBuf {
         {
             let local_data = dirs.data_local_dir();
             let user_candidates: Vec<PathBuf> = match binary {
-                "code" => vec![local_data.join("Programs/Microsoft VS Code/bin/code.cmd")],
+                "code" => vec![
+                    local_data.join("Programs/Microsoft VS Code/Code.exe"),
+                    local_data.join("Programs/Microsoft VS Code/bin/code.cmd"),
+                ],
                 "cursor" => vec![
+                    local_data.join("Programs/cursor/Cursor.exe"),
                     local_data.join("Programs/cursor/bin/cursor.cmd"),
                     local_data.join("Programs/cursor/resources/app/bin/cursor.cmd"),
                 ],
-                "codium" => vec![local_data.join("Programs/VSCodium/bin/codium.cmd")],
-                "windsurf" => vec![local_data.join("Programs/windsurf/bin/windsurf.cmd")],
+                "codium" => vec![
+                    local_data.join("Programs/VSCodium/VSCodium.exe"),
+                    local_data.join("Programs/VSCodium/bin/codium.cmd"),
+                ],
+                "windsurf" => vec![
+                    local_data.join("Programs/windsurf/Windsurf.exe"),
+                    local_data.join("Programs/windsurf/bin/windsurf.cmd"),
+                ],
                 _ => vec![],
             };
             for candidate in user_candidates {
@@ -284,13 +336,13 @@ pub fn build_workspace_document(project: &Project) -> Result<VsCodeWorkspaceFile
 fn resolve_folder_path(folder: &crate::model::Folder) -> String {
     // The generated .code-workspace lives in CodeLaunch's own directory, not next to
     // the user's repositories, so folder paths must be absolute rather than relative.
-    let path: PathBuf = if folder.path.is_absolute() {
-        folder.path.clone()
-    } else {
-        std::env::current_dir()
-            .unwrap_or_default()
-            .join(&folder.path)
-    };
+    let folder_str = folder.path.to_string_lossy();
+    if folder.path.is_absolute() || folder_str.starts_with(r"\\") || folder_str.starts_with("//") {
+        return folder_str.into_owned();
+    }
+    let path = std::env::current_dir()
+        .unwrap_or_default()
+        .join(&folder.path);
     path.to_string_lossy().into_owned()
 }
 
@@ -385,5 +437,21 @@ mod tests {
             .entry_path
             .ends_with("renamed-project.code-workspace"));
         assert!(!rendered1.entry_path.exists());
+    }
+
+    #[test]
+    fn launch_command_builds_expected_arguments() {
+        let adapter = VsCodeAdapter::new(IdeKind::VsCode, "/dummy/code");
+        let workspace = RenderedWorkspace {
+            entry_path: PathBuf::from("/path/to/project.code-workspace"),
+            generated_files: vec![],
+        };
+        let cmd = adapter.launch_command(&workspace);
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.contains(&"--new-window".to_string()));
+        assert!(args.contains(&"/path/to/project.code-workspace".to_string()));
     }
 }

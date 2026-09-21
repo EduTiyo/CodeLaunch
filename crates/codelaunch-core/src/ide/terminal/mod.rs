@@ -319,13 +319,13 @@ fn collect_grouped_terminals(
 }
 
 fn resolve_folder_path(folder: &Folder) -> String {
-    let path = if folder.path.is_absolute() {
-        folder.path.clone()
-    } else {
-        std::env::current_dir()
-            .unwrap_or_default()
-            .join(&folder.path)
-    };
+    let folder_str = folder.path.to_string_lossy();
+    if folder.path.is_absolute() || folder_str.starts_with(r"\\") || folder_str.starts_with("//") {
+        return folder_str.into_owned();
+    }
+    let path = std::env::current_dir()
+        .unwrap_or_default()
+        .join(&folder.path);
     path.to_string_lossy().into_owned()
 }
 
@@ -678,7 +678,11 @@ fn generate_windows_terminal_script(term: &Terminal, folder: &Folder) -> String 
     let mut script = String::new();
     script.push_str("@echo off\n");
     script.push_str(&format!("title {}\n", term.label));
-    script.push_str(&format!("cd /d \"{}\"\n", folder_path));
+    if folder_path.starts_with(r"\\") {
+        script.push_str(&format!("pushd \"{}\"\n", folder_path));
+    } else {
+        script.push_str(&format!("cd /d \"{}\"\n", folder_path));
+    }
 
     match (&term.command, term.keep_alive) {
         (Some(cmd), true) => {
@@ -708,7 +712,11 @@ fn generate_windows_master_script(
     if grouped_scripts.is_empty() {
         if let Some(folder) = project.folders.first() {
             let path = resolve_folder_path(folder);
-            script.push_str(&format!("start \"\" cmd /k \"cd /d \"{}\"\"\n", path));
+            if path.starts_with(r"\\") {
+                script.push_str(&format!("start \"\" cmd /k \"pushd \"{}\"\"\n", path));
+            } else {
+                script.push_str(&format!("start \"\" cmd /k \"cd /d \"{}\"\"\n", path));
+            }
         }
     } else {
         script.push_str("where wt.exe >nul 2>&1\n");
@@ -938,6 +946,26 @@ mod tests {
         assert!(term2_content.contains("title Database Migrations"));
         assert!(term2_content.contains("call cargo run --bin migrate"));
         assert!(term2_content.contains("exit"));
+    }
+
+    #[test]
+    fn render_for_windows_uses_pushd_for_unc_paths() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut project = Project::new("WSL Project", IdeKind::Terminal);
+        project.terminals_enabled = true;
+        let folder = Folder::new("backend", r"\\wsl.localhost\Ubuntu\home\tiyo\TEAEdu-back");
+        let folder_id = folder.id;
+        project.folders.push(folder);
+        let mut group = TerminalGroup::new("Main", 0);
+        let mut term = Terminal::new("Server", folder_id, 0);
+        term.command = Some("npm run dev".into());
+        term.keep_alive = true;
+        group.terminals.push(term);
+        project.terminal_groups.push(group);
+
+        let rendered = render_for_os(&project, tmp.path(), TargetOs::Windows).unwrap();
+        let term_content = fs::read_to_string(&rendered.generated_files[0]).unwrap();
+        assert!(term_content.contains(r#"pushd "\\wsl.localhost\Ubuntu\home\tiyo\TEAEdu-back""#));
     }
 
     #[test]
