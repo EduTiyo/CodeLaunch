@@ -37,8 +37,25 @@ fn ensure_sensible_path() {
 #[cfg(not(target_os = "macos"))]
 fn ensure_sensible_path() {}
 
+#[cfg(target_os = "linux")]
+fn ensure_linux_env() {
+    // Avoid Wayland protocol crash ("Error 71 dispatching to Wayland display")
+    // by falling back to X11/XWayland when GDK_BACKEND is not explicitly set.
+    if std::env::var_os("GDK_BACKEND").is_none() {
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
+    // Prevent WebKitGTK DMA-BUF rendering crashes and white/blank screens.
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ensure_linux_env() {}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    ensure_linux_env();
     ensure_sensible_path();
     let state = build_state().expect("failed to initialize CodeLaunch state");
 
