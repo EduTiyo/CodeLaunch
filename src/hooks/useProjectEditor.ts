@@ -47,11 +47,17 @@ export function useProjectEditor({
   const { t } = useTranslation();
   const [project, setProject] = useState<Project | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [detectFolder, setDetectFolder] = useState<Folder | null>(null);
   const [isDetectOpen, setIsDetectOpen] = useState(false);
   const initialJsonRef = useRef<string | null>(null);
+  const lastProjectRef = useRef<Project | null>(null);
+  const previewRequestIdRef = useRef(0);
 
   useEffect(() => {
+    setPreview(null);
+    setIsPreviewOpen(false);
+    lastProjectRef.current = null;
     if (projectId) {
       loadProject(projectId)
         .then((raw) => {
@@ -87,6 +93,30 @@ export function useProjectEditor({
     const isDirty = JSON.stringify(project) !== initialJsonRef.current;
     onDirtyChange?.(isDirty);
   }, [project, onDirtyChange]);
+
+  useEffect(() => {
+    if (!isPreviewOpen || !project) return;
+    if (lastProjectRef.current === project) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      lastProjectRef.current = project;
+      const reqId = ++previewRequestIdRef.current;
+      try {
+        const content = await previewWorkspace(project);
+        if (!cancelled && reqId === previewRequestIdRef.current) {
+          setPreview(content);
+        }
+      } catch (e) {
+        if (!cancelled && reqId === previewRequestIdRef.current) {
+          toast.error(String(e));
+        }
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [project, isPreviewOpen]);
 
   function update(patch: Partial<Project>) {
     setProject((prev) => (prev ? { ...prev, ...patch } : prev));
@@ -346,10 +376,24 @@ export function useProjectEditor({
   handleSaveRef.current = handleSave;
 
   async function handlePreview() {
-    try {
-      setPreview(await previewWorkspace(project!));
-    } catch (e) {
-      toast.error(String(e));
+    if (isPreviewOpen) {
+      setIsPreviewOpen(false);
+    } else {
+      setIsPreviewOpen(true);
+      if (project) {
+        lastProjectRef.current = project;
+        const reqId = ++previewRequestIdRef.current;
+        try {
+          const content = await previewWorkspace(project);
+          if (reqId === previewRequestIdRef.current) {
+            setPreview(content);
+          }
+        } catch (e) {
+          if (reqId === previewRequestIdRef.current) {
+            toast.error(String(e));
+          }
+        }
+      }
     }
   }
 
@@ -366,6 +410,8 @@ export function useProjectEditor({
     update,
     preview,
     setPreview,
+    isPreviewOpen,
+    setIsPreviewOpen,
     detectFolder,
     setDetectFolder,
     isDetectOpen,

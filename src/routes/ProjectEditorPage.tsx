@@ -77,6 +77,7 @@ export function ProjectEditorPage({ projectId, onDirtyChange }: Props) {
       <WorkspacePreviewSection
         ide={editor.project.ide}
         preview={editor.preview}
+        isOpen={editor.isPreviewOpen}
         onPreview={editor.handlePreview}
       />
 
